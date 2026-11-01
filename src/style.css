@@ -622,38 +622,284 @@ aside::-webkit-scrollbar-thumb {
   font-size: 19px;
 }
 
+/* =====================================================================
+   Мобильная раскладка: шапка в две строки, поле забирает остаток высоты,
+   инструменты — горизонтальная лента внизу
+   ===================================================================== */
 @media (max-width: 900px) {
+  body {
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #app {
+    height: 100vh;
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  button {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand controls"
+      "stats stats";
+    gap: 6px 10px;
+    padding: 8px 10px;
+  }
+
+  .brand {
+    grid-area: brand;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .brand small {
+    display: none;
+  }
+
+  .controls {
+    grid-area: controls;
+    gap: 4px;
+  }
+
+  .controls button {
+    padding: 7px 9px;
+    font-size: 12px;
+    border-radius: 8px;
+  }
+
+  .stats {
+    grid-area: stats;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
+
+  .stat {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 3px 8px;
+    border-radius: 8px;
+  }
+
+  .stat span {
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+
+  .stat b {
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .goals {
+    flex: 1.4 1 0;
+    min-width: 0;
+    padding: 3px 8px;
+    border-radius: 8px;
+  }
+
+  .goals .bar {
+    width: 100%;
+    height: 4px;
+  }
+
+  .goals span {
+    font-size: 9px;
+  }
+
+  .goals b {
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
   main {
     flex-direction: column;
-    padding: 10px;
+    gap: 8px;
+    padding: 8px;
+    min-height: 0;
   }
 
   #board-wrap {
-    flex: 0 0 auto;
-    height: min(58vh, 520px);
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
   }
 
   aside {
     width: auto;
     flex: 0 0 auto;
-    max-height: 40vh;
     flex-direction: row;
-    flex-wrap: wrap;
-    overflow-y: auto;
-  }
-
-  #palette {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
     gap: 6px;
-    width: 100%;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
   }
 
-  .hint {
+  aside .panel-title,
+  aside .hint {
     display: none;
   }
 
-  .panel-title {
+  #palette {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: row;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  #palette::-webkit-scrollbar {
+    display: none;
+  }
+
+  .card {
+    flex: 0 0 auto;
+    width: 76px;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 7px 4px;
+    text-align: center;
+    border-radius: 10px;
+    scroll-snap-align: start;
+  }
+
+  .card:active {
+    transform: scale(0.96);
+  }
+
+  .card .ico {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 30px;
+    font-size: 15px;
+    border-radius: 8px;
+  }
+
+  .card .info {
     width: 100%;
+    min-width: 0;
+  }
+
+  .card .top {
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .card .top b {
+    max-width: 100%;
+    font-size: 10.5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .card .top em {
+    font-size: 10px;
+  }
+
+  .card .rec,
+  .card .kbd {
+    display: none;
+  }
+
+  #demolish-btn {
+    width: 76px;
+  }
+
+  #toasts {
+    top: auto;
+    bottom: 108px;
+    max-width: calc(100vw - 24px);
+  }
+
+  .toast {
+    font-size: 11.5px;
+    padding: 6px 12px;
   }
 }
+
+/* очень узкие телефоны */
+@media (max-width: 480px) {
+  .sheet {
+    padding: 20px 18px;
+    border-radius: 14px;
+  }
+
+  .sheet h1 {
+    font-size: 20px;
+  }
+
+  .rule {
+    font-size: 12.5px;
+  }
+
+  .sheet p {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 380px) {
+  .stat span {
+    font-size: 8px;
+  }
+
+  .stat b {
+    font-size: 12px;
+  }
+
+  .card {
+    width: 68px;
+  }
+
+  #demolish-btn {
+    width: 68px;
+  }
+
+  .controls button {
+    padding: 6px 7px;
+    font-size: 11px;
+  }
+}
+
+/* горизонтальная ориентация на телефоне: жертвуем подписями, но не управлением */
+@media (max-width: 900px) and (max-height: 480px) {
+  header {
+    grid-template-areas: "brand stats controls";
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 6px 10px;
+  }
+
+  .brand {
+    font-size: 10px;
+  }
+
+  .stat span,
+  .goals span {
+    display: none;
+  }
+
+  .card {
+    padding: 5px 4px;
+  }
+
+  #toasts {
+    bottom: 84px;
+  }
+}
+

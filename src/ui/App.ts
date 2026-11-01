@@ -139,6 +139,9 @@ export class App {
     });
 
     canvas.addEventListener('pointerdown', (event) => {
+      // на тач-устройствах после касания подсказка «залипает» — прячем её
+      if (event.pointerType !== 'mouse') this.tooltip.classList.remove('show');
+
       const cell = this.renderer.cellFromPoint(event.clientX, event.clientY);
       if (!cell) return;
       this.sound.unlock();
