@@ -29,6 +29,7 @@ export class App {
   private readonly palette = must<HTMLElement>('palette');
   private readonly demolishBtn = must<HTMLButtonElement>('demolish-btn');
   private readonly tooltip = must<HTMLElement>('tooltip');
+  private readonly buildInfo = must<HTMLElement>('build-info');
   private readonly boardWrap = must<HTMLElement>('board-wrap');
   private readonly toasts = must<HTMLElement>('toasts');
   private readonly modal = must<HTMLElement>('modal');
@@ -70,8 +71,58 @@ export class App {
         </span>
         <span class="kbd">${index + 1}</span>`;
       card.addEventListener('click', () => this.selectTool(id));
+      this.bindHeldInfo(card, id);
       this.palette.appendChild(card);
     });
+  }
+
+  /** На тач-устройствах: пока палец держит карточку — показываем её паспорт. */
+  private bindHeldInfo(card: HTMLButtonElement, id: BuildingId): void {
+    const hide = (): void => this.buildInfo.classList.remove('show');
+
+    card.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'mouse') return;
+      this.showBuildInfo(card, id);
+    });
+    card.addEventListener('pointerup', hide);
+    card.addEventListener('pointercancel', hide);
+    card.addEventListener('pointerleave', hide);
+    card.addEventListener('contextmenu', (event) => event.preventDefault());
+  }
+
+  private showBuildInfo(card: HTMLElement, id: BuildingId): void {
+    const def = BUILDINGS[id];
+    const rows: string[] = [];
+
+    if (def.outCap > 0) {
+      rows.push(`<div class="line"><span>Склад выхода</span><b>${def.outCap}</b></div>`);
+    }
+    if (def.income > 0) {
+      rows.push(`<div class="line"><span>Доход</span><b style="color:#6ee787">+${def.income} ₽/такт</b></div>`);
+    } else {
+      rows.push('<div class="line"><span>Темп</span><b>1 партия / такт</b></div>');
+    }
+
+    this.buildInfo.innerHTML =
+      `<h4 style="color:${def.accent}">${def.icon} ${def.name}</h4>` +
+      `<div class="info-recipe">${this.recipeHtml(def.input, def.output, def.income)}</div>` +
+      `<div class="line"><span>Цена</span><b>${def.cost} ₽</b></div>` +
+      rows.join('');
+    this.buildInfo.classList.add('show');
+
+    // ставим над карточкой, но не выпускаем за экран
+    const anchor = card.getBoundingClientRect();
+    const width = this.buildInfo.offsetWidth;
+    const height = this.buildInfo.offsetHeight;
+    const left = Math.max(
+      8,
+      Math.min(window.innerWidth - width - 8, anchor.left + anchor.width / 2 - width / 2),
+    );
+    let top = anchor.top - height - 10;
+    if (top < 8) top = anchor.bottom + 10;
+
+    this.buildInfo.style.left = `${left}px`;
+    this.buildInfo.style.top = `${top}px`;
   }
 
   private chip(resource: ResourceId, amount: number): string {

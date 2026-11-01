@@ -433,6 +433,53 @@ aside::-webkit-scrollbar-thumb {
   margin-top: 4px;
 }
 
+/* ---------- карточка постройки при удержании (тач) ---------- */
+#build-info {
+  position: fixed;
+  z-index: 70;
+  display: none;
+  pointer-events: none;
+  width: max-content;
+  max-width: min(300px, calc(100vw - 16px));
+  padding: 10px 12px;
+  border: 1px solid #2c3f4e;
+  border-radius: 12px;
+  background: rgba(10, 18, 25, 0.97);
+  font-size: 12px;
+  line-height: 1.5;
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.68);
+}
+
+#build-info.show {
+  display: block;
+}
+
+#build-info h4 {
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+#build-info .info-recipe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+#build-info .line {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--dim);
+}
+
+#build-info .line b {
+  color: #cfdde8;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ---------- toasts ---------- */
 #toasts {
   position: fixed;
@@ -641,6 +688,7 @@ aside::-webkit-scrollbar-thumb {
   button {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
   }
 
   header {
