@@ -12,8 +12,11 @@
   <div id="app">
     <header>
       <div class="brand">
-        ЦЕПНАЯ РЕАКЦИЯ
-        <small>симулятор производственных цепочек</small>
+        <span class="brand-name">
+          ЦЕПНАЯ РЕАКЦИЯ
+          <small>симулятор производственных цепочек</small>
+        </span>
+        <select id="level-select" class="level-select" title="Уровень"></select>
       </div>
 
       <div class="stats">
@@ -45,7 +48,7 @@
       </div>
 
       <aside>
-        <div class="panel-title"><span>Постройки</span><span>1 – 8</span></div>
+        <div class="panel-title"><span>Постройки</span><span id="palette-hint">1 – 8</span></div>
         <div id="palette"></div>
 
         <div class="panel-title"><span>Инструмент</span></div>

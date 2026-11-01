@@ -19,6 +19,16 @@ export interface Building {
   stability: number;
   /** Причина последнего «плохого» такта. */
   warn: Warning | null;
+  /** Остаток залежей. Есть только у рудников с ограниченным ресурсом. */
+  deposit?: number;
+  /** Переопределение вместимости склада (у предустановленных рудников огромный отвал). */
+  outCap?: number;
+  /** Начальный размер залежей — чтобы нарисовать, сколько осталось. */
+  depositMax?: number;
+  /** Множитель выпуска (у предустановленного рудника 2 руды за такт). */
+  rate?: number;
+  /** Предустановленное здание: снос не возвращает денег. */
+  free?: boolean;
 }
 
 /** События, которые симуляция отдаёт наружу — на них реагируют рендер и UI. */
@@ -34,7 +44,9 @@ export type GameEvent =
   | { kind: 'income'; at: Cell; amount: number }
   | { kind: 'toast'; text: string; tone: 'info' | 'good' | 'bad' }
   | { kind: 'win' }
-  | { kind: 'gameover' };
+  | { kind: 'gameover'; reason: GameOverReason };
+
+export type GameOverReason = 'bankrupt' | 'depleted';
 
 export type PlaceResult = 'ok' | 'occupied' | 'poor' | 'out';
 

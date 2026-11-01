@@ -52,19 +52,45 @@ header {
 }
 
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.brand-name {
   font-weight: 800;
   letter-spacing: 0.14em;
   font-size: 13px;
   color: var(--accent);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.brand small {
+.brand-name small {
   display: block;
   letter-spacing: 0.02em;
   color: var(--dim);
   font-weight: 500;
   font-size: 10px;
+}
+
+.level-select {
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 11.5px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 5px 6px;
+  cursor: pointer;
+  max-width: 190px;
+}
+
+.level-select:hover {
+  border-color: #3a4f60;
 }
 
 .stats {
@@ -642,6 +668,27 @@ aside::-webkit-scrollbar-thumb {
   filter: brightness(1.08);
 }
 
+.sheet .go.secondary {
+  background: #16232e;
+  border: 1px solid #2c3f4e;
+  color: #c3d3df;
+  font-weight: 600;
+}
+
+.sheet .go.secondary:hover {
+  background: #1b2b37;
+  filter: none;
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.sheet-actions .go {
+  flex: 1 1 0;
+}
+
 .stats-final {
   display: flex;
   gap: 10px;
@@ -703,14 +750,27 @@ aside::-webkit-scrollbar-thumb {
 
   .brand {
     grid-area: brand;
-    font-size: 11px;
-    letter-spacing: 0.1em;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    gap: 8px;
+    min-width: 0;
+    flex-wrap: nowrap;
   }
 
-  .brand small {
+  .brand-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+  }
+
+  .brand-name small {
     display: none;
+  }
+
+  .level-select {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 170px;
+    font-size: 11px;
   }
 
   .controls {
@@ -899,6 +959,12 @@ aside::-webkit-scrollbar-thumb {
 
   .sheet p {
     font-size: 13px;
+  }
+}
+
+@media (max-width: 560px) {
+  .brand-name {
+    display: none;
   }
 }
 

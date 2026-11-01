@@ -25,6 +25,8 @@ export type BuildingId =
   | 'cutter'
   | 'welder'
   | 'assembler'
+  | 'crusher'
+  | 'orebuyer'
   | 'warehouse'
   | 'port';
 
@@ -42,6 +44,8 @@ export interface BuildingDef {
   readonly outCap: number;
   /** Сколько денег приносит за такт (для складов и порта). */
   readonly income: number;
+  /** Вместо выхода пополняет залежи рудника на карте. */
+  readonly restores?: { readonly amount: number };
 }
 
 export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
@@ -111,6 +115,31 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     outCap: 6,
     income: 0,
   },
+  /** Замыкает цикл: слитки возвращаются в шахту и снова становятся рудой. */
+  crusher: {
+    id: 'crusher',
+    name: 'Рециклер',
+    icon: '♻️',
+    accent: '#48c9b0',
+    cost: 90,
+    input: { ingot: 1 },
+    output: {},
+    outCap: 0,
+    income: 0,
+    restores: { amount: 2 },
+  },
+  /** Сбыт сырья: забирает излишек руды из замкнутого цикла. */
+  orebuyer: {
+    id: 'orebuyer',
+    name: 'Скупщик',
+    icon: '🏷️',
+    accent: '#e0b34a',
+    cost: 80,
+    input: { ore: 1 },
+    output: {},
+    outCap: 0,
+    income: 5,
+  },
   warehouse: {
     id: 'warehouse',
     name: 'Склад',
@@ -135,18 +164,6 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
   },
 };
 
-/** Порядок карточек в палитре (он же порядок горячих клавиш 1–8). */
-export const BUILD_ORDER: readonly BuildingId[] = [
-  'mine',
-  'smelter',
-  'press',
-  'cutter',
-  'welder',
-  'assembler',
-  'warehouse',
-  'port',
-];
-
 /* ---------- константы мира ---------- */
 
 export const COLS = 9;
@@ -157,10 +174,66 @@ export const BOARD_H = ROWS * CELL;
 
 /** Длительность одного такта симуляции, мс. */
 export const TICK_MS = 500;
-export const START_MONEY = 300;
-export const GOAL = 2000;
 /** Доля стоимости, возвращаемая при сносе. */
 export const REFUND_RATE = 0.5;
 
-/** Самая дешёвая постройка — порог банкротства. */
-export const MIN_COST = Math.min(...Object.values(BUILDINGS).map((b) => b.cost));
+/* ---------- уровни ---------- */
+
+export interface LevelPreset {
+  readonly type: BuildingId;
+  readonly r: number;
+  readonly c: number;
+  /** Конечные залежи: сколько единиц ресурса завод отдаст за всю игру. */
+  readonly deposit?: number;
+  /** Множитель выпуска — предустановленный рудник качает быстрее обычного. */
+  readonly rate?: number;
+}
+
+export interface LevelDef {
+  readonly id: number;
+  readonly name: string;
+  readonly subtitle: string;
+  readonly brief: string;
+  readonly goal: number;
+  readonly startMoney: number;
+  /** Что доступно в палитре — в этом же порядке идут горячие клавиши 1–8. */
+  readonly available: readonly BuildingId[];
+  readonly presets: readonly LevelPreset[];
+}
+
+export const LEVELS: readonly LevelDef[] = [
+  {
+    id: 1,
+    name: 'Открытая цепочка',
+    subtitle: 'Стройка с нуля',
+    brief:
+      'Классическая цепочка: руда → слиток → пластина → каркас и модуль. Рудник бесконечен, ' +
+      'места хватает на всё. Освойтесь с балансом и заработайте 2000 ₽.',
+    goal: 2000,
+    startMoney: 300,
+    available: ['mine', 'smelter', 'press', 'cutter', 'welder', 'assembler', 'warehouse', 'port'],
+    presets: [],
+  },
+  {
+    id: 2,
+    name: 'Замкнутый цикл',
+    subtitle: 'Рудник кончается',
+    brief:
+      'На карте стоит один рудник, и поставить свой нельзя. Его залежи конечны, но Рециклер ' +
+      'возвращает слитки обратно в шахту: 1 слиток → +2 к залежам. Замкните цикл, а излишек ' +
+      'пускайте в производство. Если рудник иссякнет — цепочка умрёт.',
+    goal: 600,
+    startMoney: 260,
+    available: [
+      'smelter',
+      'press',
+      'cutter',
+      'crusher',
+      'welder',
+      'assembler',
+      'warehouse',
+      'port',
+    ],
+    presets: [{ type: 'mine', r: 4, c: 4, deposit: 200, rate: 2 }],
+  },
+];

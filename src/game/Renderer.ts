@@ -369,7 +369,21 @@ export class Renderer {
     ctx.restore();
 
     const outputKey = Object.keys(def.output)[0] as ResourceId | undefined;
-    if (outputKey) {
+    if (building.deposit !== undefined) {
+      // конечные залежи: полоса остатка вместо точек склада
+      const ratio = building.depositMax ? Math.max(0, building.deposit) / building.depositMax : 0;
+      const trackWidth = w - 20;
+      const trackX = x + pad + 10;
+      const trackY = y + CELL / 2 + 7;
+
+      ctx.fillStyle = 'rgba(255,255,255,.10)';
+      this.roundRect(trackX, trackY, trackWidth, 3, 1.5);
+      ctx.fill();
+
+      ctx.fillStyle = ratio > 0.35 ? '#c07a3a' : '#f85149';
+      this.roundRect(trackX, trackY, Math.max(1.5, trackWidth * ratio), 3, 1.5);
+      ctx.fill();
+    } else if (outputKey) {
       const total = Math.min(building.out[outputKey] ?? 0, 6);
       const startX = x + CELL / 2 + 2 - (6 * 6) / 2 + 3;
       for (let i = 0; i < 6; i++) {

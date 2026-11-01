@@ -1,9 +1,8 @@
 import {
   BUILDINGS,
-  BUILD_ORDER,
-  GOAL,
+  LEVELS,
   RESOURCES,
-  START_MONEY,
+  type BuildingDef,
   type BuildingId,
   type ResourceId,
 } from '../game/data';
@@ -11,6 +10,12 @@ import type { Game } from '../game/Game';
 import type { Renderer } from '../game/Renderer';
 import type { Sound } from '../game/Sound';
 import type { Building, Tool } from '../game/types';
+
+interface SheetButton {
+  label: string;
+  secondary?: boolean;
+  action: () => void;
+}
 
 function must<T extends HTMLElement>(id: string): T {
   const node = document.getElementById(id);
@@ -27,6 +32,7 @@ export class App {
   private readonly goalText = must<HTMLElement>('goal-text');
   private readonly goalBar = must<HTMLElement>('goal-bar');
   private readonly palette = must<HTMLElement>('palette');
+  private readonly paletteHint = must<HTMLElement>('palette-hint');
   private readonly demolishBtn = must<HTMLButtonElement>('demolish-btn');
   private readonly tooltip = must<HTMLElement>('tooltip');
   private readonly buildInfo = must<HTMLElement>('build-info');
@@ -34,6 +40,7 @@ export class App {
   private readonly toasts = must<HTMLElement>('toasts');
   private readonly modal = must<HTMLElement>('modal');
   private readonly sheet = must<HTMLElement>('sheet');
+  private readonly levelSelect = must<HTMLSelectElement>('level-select');
 
   private readonly pauseBtn = must<HTMLButtonElement>('btn-pause');
   private readonly speedBtn = must<HTMLButtonElement>('btn-speed');
@@ -42,14 +49,46 @@ export class App {
   private readonly restartBtn = must<HTMLButtonElement>('btn-restart');
 
   private tool: Tool | null = null;
+  private paletteTypes: BuildingId[] = [];
 
   constructor(
     private readonly game: Game,
     private readonly renderer: Renderer,
     private readonly sound: Sound,
   ) {
-    this.buildPalette();
+    this.initLevelSelect();
+    this.rebuildPalette();
     this.bindEvents();
+    this.showIntro();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* уровни                                                            */
+  /* ---------------------------------------------------------------- */
+
+  private initLevelSelect(): void {
+    this.levelSelect.innerHTML = LEVELS.map(
+      (level, index) =>
+        `<option value="${index}">Ур. ${index + 1} · ${level.name}</option>`,
+    ).join('');
+    this.levelSelect.value = String(this.game.levelIndex);
+    this.levelSelect.addEventListener('change', () => {
+      this.changeLevel(Number(this.levelSelect.value));
+    });
+  }
+
+  private changeLevel(index: number): void {
+    this.game.startLevel(index);
+    this.levelSelect.value = String(this.game.levelIndex);
+
+    this.renderer.clearEffects();
+    this.clearTool();
+    this.rebuildPalette();
+    this.speedBtn.textContent = `${this.game.speed}×`;
+    this.modal.classList.add('hidden');
+    this.updateHud();
+
+    this.toast(`Уровень ${index + 1}: ${this.game.level.name}`, 'good');
     this.showIntro();
   }
 
@@ -57,8 +96,15 @@ export class App {
   /* палитра                                                           */
   /* ---------------------------------------------------------------- */
 
+  private rebuildPalette(): void {
+    this.paletteTypes = [...this.game.level.available];
+    this.palette.innerHTML = '';
+    this.paletteHint.textContent = `1 – ${this.paletteTypes.length}`;
+    this.buildPalette();
+  }
+
   private buildPalette(): void {
-    BUILD_ORDER.forEach((id, index) => {
+    this.paletteTypes.forEach((id, index) => {
       const def = BUILDINGS[id];
       const card = document.createElement('button');
       card.className = 'card';
@@ -67,7 +113,7 @@ export class App {
         <span class="ico" style="--c: ${def.accent}">${def.icon}</span>
         <span class="info">
           <span class="top"><b>${def.name}</b><em class="cost">${def.cost} ₽</em></span>
-          <span class="rec">${this.recipeHtml(def.input, def.output, def.income)}</span>
+          <span class="rec">${this.recipeHtml(def)}</span>
         </span>
         <span class="kbd">${index + 1}</span>`;
       card.addEventListener('click', () => this.selectTool(id));
@@ -97,7 +143,11 @@ export class App {
     if (def.outCap > 0) {
       rows.push(`<div class="line"><span>Склад выхода</span><b>${def.outCap}</b></div>`);
     }
-    if (def.income > 0) {
+    if (def.restores) {
+      rows.push(
+        `<div class="line"><span>Возврат в шахту</span><b style="color:#6ee787">+${def.restores.amount} руды</b></div>`,
+      );
+    } else if (def.income > 0) {
       rows.push(`<div class="line"><span>Доход</span><b style="color:#6ee787">+${def.income} ₽/такт</b></div>`);
     } else {
       rows.push('<div class="line"><span>Темп</span><b>1 партия / такт</b></div>');
@@ -105,7 +155,7 @@ export class App {
 
     this.buildInfo.innerHTML =
       `<h4 style="color:${def.accent}">${def.icon} ${def.name}</h4>` +
-      `<div class="info-recipe">${this.recipeHtml(def.input, def.output, def.income)}</div>` +
+      `<div class="info-recipe">${this.recipeHtml(def)}</div>` +
       `<div class="line"><span>Цена</span><b>${def.cost} ₽</b></div>` +
       rows.join('');
     this.buildInfo.classList.add('show');
@@ -129,22 +179,27 @@ export class App {
     return `<span class="chip" style="--c: ${RESOURCES[resource].color}">${amount} ${RESOURCES[resource].name}</span>`;
   }
 
-  private recipeHtml(
-    input: Partial<Record<ResourceId, number>>,
-    output: Partial<Record<ResourceId, number>>,
-    income: number,
-  ): string {
-    const inputs = Object.keys(input).map((key) => {
+  private recipeHtml(def: BuildingDef): string {
+    const inputs = Object.keys(def.input).map((key) => {
       const resource = key as ResourceId;
-      return this.chip(resource, input[resource]!);
+      return this.chip(resource, def.input[resource]!);
     });
-    const outputs = Object.keys(output).map((key) => {
+    const outputs = Object.keys(def.output).map((key) => {
       const resource = key as ResourceId;
-      return this.chip(resource, output[resource]!);
+      return this.chip(resource, def.output[resource]!);
     });
 
     const left = inputs.length > 0 ? inputs.join('') : '<span style="opacity:.45">из воздуха</span>';
-    const right = outputs.length > 0 ? outputs.join('') : `<span class="money-out">${income} ₽</span>`;
+
+    let right: string;
+    if (outputs.length > 0) {
+      right = outputs.join('');
+    } else if (def.restores) {
+      right = `<span class="money-out">+${def.restores.amount} к залежам</span>`;
+    } else {
+      right = `<span class="money-out">${def.income} ₽</span>`;
+    }
+
     return `${left}<span class="arrow">→</span>${right}`;
   }
 
@@ -181,13 +236,13 @@ export class App {
       this.renderer.hover = cell;
 
       if (!cell) {
-        this.tooltip.classList.remove('show');
+        this.hideTooltip();
         return;
       }
 
       const building = this.game.at(cell.r, cell.c);
       if (!building) {
-        this.tooltip.classList.remove('show');
+        this.hideTooltip();
         return;
       }
 
@@ -197,7 +252,7 @@ export class App {
 
     canvas.addEventListener('pointerleave', () => {
       this.renderer.hover = null;
-      this.tooltip.classList.remove('show');
+      this.hideTooltip();
     });
 
     canvas.addEventListener('pointerdown', (event) => {
@@ -249,7 +304,7 @@ export class App {
     });
     this.helpBtn.addEventListener('click', () => this.showHelp());
     this.restartBtn.addEventListener('click', () => {
-      if (confirm('Начать заново? Текущий завод будет уничтожен.')) this.restart();
+      if (confirm('Начать уровень заново? Текущий завод будет уничтожен.')) this.restart();
     });
 
     window.addEventListener('keydown', (event) => {
@@ -267,8 +322,8 @@ export class App {
         return;
       }
       const index = Number.parseInt(event.key, 10);
-      if (index >= 1 && index <= BUILD_ORDER.length) {
-        this.selectTool(BUILD_ORDER[index - 1]!);
+      if (index >= 1 && index <= this.paletteTypes.length) {
+        this.selectTool(this.paletteTypes[index - 1]!);
       }
     });
 
@@ -278,7 +333,7 @@ export class App {
           this.toast(event.text, event.tone);
           break;
         case 'win':
-          this.toast('🏆 Цель достигнута! Производство работает как часы.', 'good');
+          this.showWin();
           break;
         case 'gameover':
           this.showGameOver();
@@ -297,6 +352,7 @@ export class App {
     const def = BUILDINGS[building.type];
     const stabilityColor =
       building.stability > 60 ? '#3fb950' : building.stability > 30 ? '#d29922' : '#f85149';
+    const outCap = building.outCap ?? def.outCap;
 
     const rows: string[] = [
       `<div class="line"><span>Стабильность</span><b style="color:${stabilityColor}">${Math.round(building.stability)}%</b></div>`,
@@ -311,11 +367,24 @@ export class App {
     for (const key in def.output) {
       const resource = key as ResourceId;
       rows.push(
-        `<div class="line"><span>${RESOURCES[resource].name}</span><b>${building.out[resource] ?? 0} / ${def.outCap}</b></div>`,
+        `<div class="line"><span>${RESOURCES[resource].name}</span><b>${building.out[resource] ?? 0} / ${outCap}</b></div>`,
       );
     }
     if (def.income > 0) {
       rows.push(`<div class="line"><span>Доход</span><b style="color:#6ee787">+${def.income} ₽</b></div>`);
+    }
+    if (def.restores) {
+      rows.push(
+        `<div class="line"><span>Возврат в шахту</span><b style="color:#6ee787">+${def.restores.amount} руды</b></div>`,
+      );
+    }
+    if (building.deposit !== undefined) {
+      rows.push(
+        `<div class="line"><span>Залежи</span><b>${Math.max(0, building.deposit)} / ${building.depositMax ?? 0}</b></div>`,
+      );
+      if (building.deposit <= 0) {
+        rows.push('<div class="warn-line">⛔ Залежи истощены — нужен Рециклер</div>');
+      }
     }
     if (building.warn === 'over') {
       rows.push('<div class="warn-line">⚠ Переизбыток — склад переполнен</div>');
@@ -367,32 +436,52 @@ export class App {
   /* модальные окна                                                    */
   /* ---------------------------------------------------------------- */
 
-  private openSheet(html: string, onClose?: () => void): void {
+  private openSheet(html: string, buttons: SheetButton[]): void {
     this.sheet.innerHTML = html;
+
+    const row = document.createElement('div');
+    row.className = 'sheet-actions';
+    for (const spec of buttons) {
+      const button = document.createElement('button');
+      button.className = spec.secondary ? 'go secondary' : 'go';
+      button.textContent = spec.label;
+      button.addEventListener('click', () => {
+        this.modal.classList.add('hidden');
+        spec.action();
+      });
+      row.appendChild(button);
+    }
+    this.sheet.appendChild(row);
+
     this.modal.classList.remove('hidden');
-    const button = this.sheet.querySelector<HTMLButtonElement>('.go');
-    button?.addEventListener('click', () => {
-      this.modal.classList.add('hidden');
-      onClose?.();
-    });
   }
 
   showIntro(): void {
+    const level = this.game.level;
+    const index = this.game.levelIndex;
+
+    this.setPaused(this.game.started || this.game.paused);
+
     this.openSheet(
-      `<div class="sub">Симулятор производственных цепочек</div>
-       <h1>Цепная реакция</h1>
-       <p>Стройте заводы, которые производят ресурсы друг для друга. Завод живёт только тогда, когда сырьё приходит ровно в нужном количестве.</p>
+      `<div class="sub">Уровень ${index + 1} · ${level.subtitle}</div>
+       <h1>${level.name}</h1>
+       <p>${level.brief}</p>
        <div class="rules">
          <div class="rule"><i>🔥</i><span>Не хватает сырья — завод <b>перегревается</b>.</span></div>
          <div class="rule"><i>📦</i><span>Продукцию не забирают, склад переполнен — завод <b>взрывается от давления</b>.</span></div>
-         <div class="rule good"><i>🎯</i><span>Цель: заработать <b>${GOAL.toLocaleString('ru-RU')} ₽</b> на складах и в порту.</span></div>
+         <div class="rule good"><i>🎯</i><span>Цель: заработать <b>${level.goal.toLocaleString('ru-RU')} ₽</b>. Стартовый капитал: <b>${rubles(level.startMoney)}</b>.</span></div>
        </div>
-       <p style="font-size:12.5px">Стартовый капитал: <b>${rubles(START_MONEY)}</b>. Пробел — пауза, пока можно спокойно строить.</p>
-       <button class="go">Начать стройку</button>`,
-      () => {
-        this.game.started = true;
-        this.sound.unlock();
-      },
+       <p style="font-size:12.5px">Соседние клетки соединяются сами. Пробел — пауза, пока можно спокойно строить.</p>`,
+      [
+        {
+          label: 'Начать стройку',
+          action: () => {
+            this.game.started = true;
+            this.setPaused(false);
+            this.sound.unlock();
+          },
+        },
+      ],
     );
   }
 
@@ -408,46 +497,91 @@ export class App {
          <div class="rule"><i>💥</i><span>На нуле стабильности завод <b>взрывается</b> и исчезает. Деньги за него не возвращаются.</span></div>
          <div class="rule good"><i>💰</i><span><b>Склад</b> и <b>Порт</b> покупают продукцию — это ваш доход и цель.</span></div>
        </div>
-       <p style="font-size:12.5px;opacity:.8">Совет: пропорции важны. Сборке нужно 1 Каркас + 2 Шестерни за такт, а Сварке — 2 Пластины.</p>
-       <button class="go">Понятно</button>`,
+       <p style="font-size:12.5px;opacity:.8">Совет: пропорции важны. Сборке нужно 1 Каркас + 2 Шестерни за такт, а Сварке — 2 Пластины.</p>`,
+      [{ label: 'Понятно', action: () => undefined }],
+    );
+  }
+
+  private showWin(): void {
+    const level = this.game.level;
+    const hasNext = this.game.levelIndex + 1 < LEVELS.length;
+
+    this.setPaused(true);
+
+    const buttons: SheetButton[] = [];
+    if (hasNext) {
+      buttons.push({
+        label: 'Следующий уровень',
+        action: () => this.changeLevel(this.game.levelIndex + 1),
+      });
+    } else {
+      buttons.push({ label: 'Начать заново', action: () => this.restart() });
+    }
+    buttons.push({
+      label: 'Остаться',
+      secondary: true,
+      action: () => this.setPaused(false),
+    });
+
+    this.openSheet(
+      `<div class="sub">Уровень ${this.game.levelIndex + 1} пройден</div>
+       <h1>${level.name} — готово!</h1>
+       <p>Цель выполнена: производство держится, стабильность под контролем.</p>
+       <div class="stats-final">
+         <div><span>Заработано</span><b>${rubles(this.game.earned)}</b></div>
+         <div><span>Заводов</span><b>${this.game.buildings().length}</b></div>
+       </div>`,
+      buttons,
     );
   }
 
   private showGameOver(): void {
+    const depleted = this.game.overReason === 'depleted';
+
     this.openSheet(
       `<div class="sub bad">Производство остановлено</div>
-       <h1>Завод обанкротился</h1>
-       <p>Денег не хватает даже на самый дешёвый завод, а доходов нет. Цепочка разорвана.</p>
+       <h1>${depleted ? 'Шахта иссякла' : 'Завод обанкротился'}</h1>
+       <p>${
+         depleted
+           ? 'Залежи рудника закончились, а замкнуть цикл не успели. Рециклер вернул бы слитки в шахту — но строить его нужно было раньше.'
+           : 'Денег не хватает даже на самый дешёвый завод, а доходов нет. Цепочка разорвана.'
+       }</p>
        <div class="stats-final">
          <div><span>Заработано</span><b>${rubles(this.game.earned)}</b></div>
          <div><span>Заводов</span><b>${this.game.buildings().length}</b></div>
-       </div>
-       <button class="go">Начать заново</button>`,
-      () => this.restart(),
+       </div>`,
+      [{ label: 'Начать заново', action: () => this.restart() }],
     );
   }
 
   private restart(): void {
-    this.game.reset();
+    this.game.restart();
     this.renderer.clearEffects();
     this.clearTool();
-    this.pauseBtn.textContent = '⏸';
-    this.pauseBtn.classList.remove('on');
+    this.setPaused(false);
     this.speedBtn.textContent = '1×';
-    this.toast('Новая стройка начата', 'good');
+    this.updateHud();
+    this.toast('Уровень начат заново', 'good');
   }
 
   /* ---------------------------------------------------------------- */
   /* шапка                                                             */
   /* ---------------------------------------------------------------- */
 
+  private setPaused(value: boolean): void {
+    this.game.paused = value;
+    this.pauseBtn.textContent = value ? '▶' : '⏸';
+    this.pauseBtn.classList.toggle('on', value);
+  }
+
   private togglePause(): void {
-    this.game.togglePause();
-    this.pauseBtn.textContent = this.game.paused ? '▶' : '⏸';
-    this.pauseBtn.classList.toggle('on', this.game.paused);
+    if (!this.game.started || this.game.over) return;
+    this.setPaused(!this.game.paused);
   }
 
   private updateHud(): void {
+    const level = this.game.level;
+
     this.money.textContent = rubles(this.game.money);
     this.income.textContent = `${Math.round(this.game.incomePerSecond)} ₽/с`;
 
@@ -457,9 +591,9 @@ export class App {
     this.stability.style.color =
       stability > 60 ? 'var(--good)' : stability > 30 ? 'var(--warn)' : 'var(--bad)';
 
-    const earned = Math.min(this.game.earned, GOAL);
-    this.goalText.textContent = `${earned.toLocaleString('ru-RU')} / ${GOAL.toLocaleString('ru-RU')} ₽`;
-    this.goalBar.style.width = `${Math.min(100, (this.game.earned / GOAL) * 100)}%`;
+    const earned = Math.min(this.game.earned, level.goal);
+    this.goalText.textContent = `${earned.toLocaleString('ru-RU')} / ${level.goal.toLocaleString('ru-RU')} ₽`;
+    this.goalBar.style.width = `${Math.min(100, (this.game.earned / level.goal) * 100)}%`;
 
     for (const card of this.palette.children) {
       const element = card as HTMLElement;
