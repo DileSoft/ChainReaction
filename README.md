@@ -2,7 +2,7 @@
 
 **🎮 Играть: [dilesoft.github.io/ChainReaction](https://dilesoft.github.io/ChainReaction/)**
 
-Браузерный симулятор производственных цепочек. Один файл, никаких зависимостей — можно открыть `index.html` локально или играть по ссылке выше.
+Браузерный симулятор производственных цепочек. Vite + TypeScript, без сторонних библиотек и игровых движков.
 
 ## Механика
 
@@ -33,3 +33,34 @@
 | Снести (возврат 50 %) | `X` или правый клик |
 | Пауза | `Пробел` |
 | Отменить выбор | `Esc` |
+
+## Разработка
+
+```bash
+npm install
+npm run dev      # http://localhost:5173
+npm run build    # tsc --noEmit + vite build → dist/
+npm run preview  # посмотреть production-сборку
+```
+
+## Структура
+
+```
+src/
+  main.ts              точка входа: собирает Game + Renderer + App
+  style.css            оформление
+  game/
+    data.ts            ресурсы, рецепты, стоимость, константы мира
+    types.ts           типы зданий, событий и инструментов
+    Game.ts            чистая модель: сетка, такты, экономика, взрывы
+    Renderer.ts        отрисовка canvas, эффекты, попадание по клетке
+    Sound.ts           синтез звуков на WebAudio
+  ui/
+    App.ts             DOM: палитра, шапка, подсказки, модальные окна, цикл
+```
+
+`Game` ничего не знает про DOM: он только меняет состояние и шлёт типизированные события (`transfer`, `explode`, `income`, `toast`, `win`, `gameover`). `Renderer` превращает их в анимации, `App` — в интерфейс.
+
+## Деплой
+
+Каждый пуш в `main` собирается GitHub Actions и публикуется на GitHub Pages (см. `.github/workflows/deploy.yml`).

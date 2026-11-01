@@ -1,7 +1,23 @@
-# OS / editor junk
+# зависимости
+node_modules/
+
+# сборка
+dist/
+dist-ssr/
+
+# логи
+*.log
+npm-debug.log*
+
+# окружение
+.env
+.env.local
+
+# OS / редакторы
 Thumbs.db
 Desktop.ini
 .DS_Store
 *.swp
 .idea/
-.vscode/
+.vscode/*
+!.vscode/extensions.json
