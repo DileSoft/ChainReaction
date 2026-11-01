@@ -104,7 +104,18 @@ export class App {
   private selectTool(tool: Tool): void {
     this.tool = this.tool === tool ? null : tool;
     this.renderer.tool = this.tool;
+    this.hideTooltip();
     this.sound.unlock();
+  }
+
+  private clearTool(): void {
+    this.tool = null;
+    this.renderer.tool = null;
+    this.hideTooltip();
+  }
+
+  private hideTooltip(): void {
+    this.tooltip.classList.remove('show');
   }
 
   /* ---------------------------------------------------------------- */
@@ -139,21 +150,38 @@ export class App {
     });
 
     canvas.addEventListener('pointerdown', (event) => {
-      // на тач-устройствах после касания подсказка «залипает» — прячем её
-      if (event.pointerType !== 'mouse') this.tooltip.classList.remove('show');
-
       const cell = this.renderer.cellFromPoint(event.clientX, event.clientY);
       if (!cell) return;
-      this.sound.unlock();
 
+      this.sound.unlock();
+      this.renderer.hover = cell;
+
+      const existing = this.game.at(cell.r, cell.c);
+
+      // демонтаж — единственный сценарий, который сносит здание
       if (event.button === 2 || this.tool === 'demolish') {
+        this.hideTooltip();
         if (this.game.demolish(cell.r, cell.c)) this.renderer.clearEffects();
         return;
       }
 
+      // по занятой клетке всегда показываем подсказку, даже в режиме строительства:
+      // на тач-устройствах это единственный способ её увидеть
+      if (existing) {
+        this.renderTooltip(existing);
+        this.positionTooltip(cell.r, cell.c);
+        return;
+      }
+
+      this.hideTooltip();
       if (!this.tool) return;
+
       const result = this.game.place(this.tool, cell.r, cell.c);
-      if (result === 'ok') this.sound.build();
+      if (result !== 'ok') return;
+
+      this.sound.build();
+      // один инструмент — одна постройка: после установки режим снимается
+      this.clearTool();
     });
 
     canvas.addEventListener('contextmenu', (event) => event.preventDefault());
@@ -180,8 +208,7 @@ export class App {
         return;
       }
       if (event.key === 'Escape') {
-        this.tool = null;
-        this.renderer.tool = null;
+        this.clearTool();
         return;
       }
       if (event.key.toLowerCase() === 'x') {
@@ -253,11 +280,18 @@ export class App {
   private positionTooltip(r: number, c: number): void {
     const cell = this.renderer.cellRect(r, c);
     const wrap = this.boardWrap.getBoundingClientRect();
-    const left = cell.left - wrap.left + cell.size + 12;
-    const top = cell.top - wrap.top + cell.size + 12;
+    const tipW = this.tooltip.offsetWidth || 180;
+    const tipH = this.tooltip.offsetHeight || 130;
 
-    this.tooltip.style.left = `${Math.min(wrap.width - 190, Math.max(4, left))}px`;
-    this.tooltip.style.top = `${Math.min(wrap.height - 130, Math.max(4, top))}px`;
+    let left = cell.left - wrap.left + cell.size + 12;
+    let top = cell.top - wrap.top + cell.size + 12;
+
+    // не вылезаем за поле: при нехватке места переворачиваем подсказку
+    if (left + tipW > wrap.width - 4) left = cell.left - wrap.left - tipW - 12;
+    if (top + tipH > wrap.height - 4) top = cell.top - wrap.top - tipH - 12;
+
+    this.tooltip.style.left = `${Math.max(4, Math.min(wrap.width - tipW - 4, left))}px`;
+    this.tooltip.style.top = `${Math.max(4, Math.min(wrap.height - tipH - 4, top))}px`;
   }
 
   /* ---------------------------------------------------------------- */
@@ -345,8 +379,7 @@ export class App {
   private restart(): void {
     this.game.reset();
     this.renderer.clearEffects();
-    this.renderer.tool = null;
-    this.tool = null;
+    this.clearTool();
     this.pauseBtn.textContent = '⏸';
     this.pauseBtn.classList.remove('on');
     this.speedBtn.textContent = '1×';
