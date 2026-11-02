@@ -10,7 +10,7 @@ import {
   type BuildingId,
   type ResourceId,
 } from './data';
-import { buildingIcon, iconDataUrl } from './icons';
+import { buildingIcon, iconDataUrl, resourceIcon } from './icons';
 import type { Game } from './Game';
 import type { Sound } from './Sound';
 import type { Building, Cell, Tool } from './types';
@@ -67,6 +67,7 @@ export class Renderer {
   private readonly floats: FloatingText[] = [];
   private readonly transfers: TransferFx[] = [];
   private readonly icons = new Map<BuildingId, HTMLImageElement>();
+  private readonly resourceIcons = new Map<ResourceId, HTMLImageElement>();
   private shake = 0;
 
   constructor(
@@ -89,6 +90,12 @@ export class Renderer {
       const image = new Image();
       image.src = iconDataUrl(buildingIcon(id, 64));
       this.icons.set(id, image);
+    }
+
+    for (const id of Object.keys(RESOURCES) as ResourceId[]) {
+      const image = new Image();
+      image.src = iconDataUrl(resourceIcon(id, 48));
+      this.resourceIcons.set(id, image);
     }
 
     game.on((event) => {
@@ -408,17 +415,45 @@ export class Renderer {
     ctx.fill();
 
     ctx.save();
-    ctx.globalAlpha = building.warn ? 0.55 : 0.95;
-    this.drawIcon(building.type, x + CELL / 2 + 2, y + CELL / 2 - 8, 26);
+    ctx.globalAlpha = building.warn ? 0.6 : 0.95;
+    this.drawIcon(building.type, x + CELL / 2, y + CELL / 2 - 6, 24);
     ctx.restore();
 
-    const outputKey = Object.keys(def.output)[0] as ResourceId | undefined;
+    // паспорт клетки: сверху справа вход, снизу справа выход
+    const badgeX = x + CELL - pad - 9;
+    const inputAlert = building.warn === 'starve';
+    const outputAlert = building.warn === 'over';
+
+    (Object.keys(def.input) as ResourceId[]).forEach((resource, index) => {
+      this.drawResourceBadge(resource, badgeX - index * 12, y + pad + 9, 10, inputAlert);
+    });
+
+    const outputs = Object.keys(def.output) as ResourceId[];
+    const outCap = building.outCap ?? def.outCap;
+    const outputRatio =
+      outputs.length > 0 && outCap > 0 ? Math.min(1, (building.out[outputs[0]!] ?? 0) / outCap) : 0;
+
+    if (outputs.length > 0) {
+      outputs.forEach((resource, index) => {
+        this.drawResourceBadge(
+          resource,
+          badgeX - index * 12,
+          y + CELL - pad - 19,
+          10,
+          outputAlert,
+          index === 0 ? outputRatio : undefined,
+        );
+      });
+    } else if (def.restores) {
+      this.drawResourceBadge('ore', badgeX, y + CELL - pad - 19, 10, false, undefined, '+');
+    }
+
     if (building.deposit !== undefined) {
-      // конечные залежи: полоса остатка вместо точек склада
+      // конечные залежи: полоса остатка
       const ratio = building.depositMax ? Math.max(0, building.deposit) / building.depositMax : 0;
-      const trackWidth = w - 20;
-      const trackX = x + pad + 10;
-      const trackY = y + CELL / 2 + 7;
+      const trackWidth = 30;
+      const trackX = x + pad + 9;
+      const trackY = y + CELL / 2 + 8;
 
       ctx.fillStyle = 'rgba(255,255,255,.10)';
       this.roundRect(trackX, trackY, trackWidth, 3, 1.5);
@@ -427,15 +462,6 @@ export class Renderer {
       ctx.fillStyle = ratio > 0.35 ? '#c07a3a' : '#f85149';
       this.roundRect(trackX, trackY, Math.max(1.5, trackWidth * ratio), 3, 1.5);
       ctx.fill();
-    } else if (outputKey) {
-      const total = Math.min(building.out[outputKey] ?? 0, 6);
-      const startX = x + CELL / 2 + 2 - (6 * 6) / 2 + 3;
-      for (let i = 0; i < 6; i++) {
-        ctx.beginPath();
-        ctx.arc(startX + i * 6, y + CELL / 2 + 9, 2.1, 0, Math.PI * 2);
-        ctx.fillStyle = i < total ? RESOURCES[outputKey].color : 'rgba(255,255,255,.09)';
-        ctx.fill();
-      }
     }
 
     const barWidth = w - 12;
@@ -449,17 +475,56 @@ export class Renderer {
     ctx.fillStyle = fill > 0.6 ? '#3fb950' : fill > 0.3 ? '#d29922' : '#f85149';
     this.roundRect(barX, barY, Math.max(2, barWidth * fill), 4, 2);
     ctx.fill();
+  }
 
-    if (building.warn) {
-      const pulse = (Math.sin(now / 180) + 1) / 2;
-      ctx.save();
-      ctx.globalAlpha = 0.5 + 0.5 * pulse;
-      ctx.fillStyle = building.warn === 'over' ? '#f85149' : '#5aa9e6';
-      ctx.font = 'bold 15px "Segoe UI",sans-serif';
+  /** Круглый бейдж с иконкой ресурса; красная обводка — авария по этой стороне. */
+  private drawResourceBadge(
+    resource: ResourceId,
+    cx: number,
+    cy: number,
+    size: number,
+    alert: boolean,
+    ratio?: number,
+    mark?: string,
+  ): void {
+    const ctx = this.ctx;
+    const radius = size / 2 + 3;
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(6, 11, 16, 0.88)';
+    ctx.fill();
+    ctx.lineWidth = 1.4;
+    ctx.strokeStyle = alert ? '#f85149' : 'rgba(255,255,255,.12)';
+    ctx.stroke();
+
+    // заполнение склада — дуга по ободку
+    if (ratio !== undefined && ratio > 0) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius - 2, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ratio);
+      ctx.strokeStyle = RESOURCES[resource].color;
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+      ctx.lineCap = 'butt';
+    }
+
+    const image = this.resourceIcons.get(resource);
+    if (image && image.complete && image.naturalWidth > 0) {
+      ctx.drawImage(image, cx - size / 2, cy - size / 2, size, size);
+    } else {
+      ctx.beginPath();
+      ctx.arc(cx, cy, size / 3, 0, Math.PI * 2);
+      ctx.fillStyle = RESOURCES[resource].color;
+      ctx.fill();
+    }
+
+    if (mark) {
+      ctx.fillStyle = '#6ee787';
+      ctx.font = 'bold 9px "Segoe UI",sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('!', x + CELL - pad - 10, y + pad + 11);
-      ctx.restore();
+      ctx.fillText(mark, cx + radius - 1, cy - radius + 1);
     }
   }
 
