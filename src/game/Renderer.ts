@@ -256,7 +256,9 @@ export class Renderer {
     this.drawGrid();
     if (this.hover && this.tool && this.tool !== 'demolish' && !this.game.over) {
       const { r, c } = this.hover;
-      if (!this.game.at(r, c)) this.drawGhost(this.tool, r, c);
+      if (!this.game.at(r, c) && !this.game.isBlocked(r, c)) {
+        this.drawGhost(this.tool, r, c);
+      }
     }
 
     for (const building of this.game.grid) {
@@ -280,6 +282,29 @@ export class Renderer {
       for (let c = 0; c < COLS; c++) {
         const x = c * CELL;
         const y = r * CELL;
+
+        if (this.game.isBlocked(r, c)) {
+          ctx.save();
+          ctx.fillStyle = '#05090d';
+          this.roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 9);
+          ctx.fill();
+          ctx.clip();
+          ctx.strokeStyle = 'rgba(125,144,159,.16)';
+          ctx.lineWidth = 2;
+          for (let i = -CELL; i < CELL; i += 12) {
+            ctx.beginPath();
+            ctx.moveTo(x + i, y);
+            ctx.lineTo(x + i + CELL, y + CELL);
+            ctx.stroke();
+          }
+          ctx.restore();
+          ctx.strokeStyle = 'rgba(255,255,255,.06)';
+          ctx.lineWidth = 1;
+          this.roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 9);
+          ctx.stroke();
+          continue;
+        }
+
         ctx.fillStyle = (r + c) % 2 === 0 ? '#0e1922' : '#0c161e';
         this.roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 9);
         ctx.fill();

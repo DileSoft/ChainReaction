@@ -27,6 +27,9 @@ export type BuildingId =
   | 'assembler'
   | 'crusher'
   | 'orebuyer'
+  | 'scrapbuyer'
+  | 'gearbuyer'
+  | 'framebuyer'
   | 'warehouse'
   | 'port';
 
@@ -128,17 +131,50 @@ export const BUILDINGS: Readonly<Record<BuildingId, BuildingDef>> = {
     income: 0,
     restores: { amount: 2 },
   },
-  /** Сбыт сырья: забирает излишек руды из замкнутого цикла. */
+  /** Сбыт сырья. */
   orebuyer: {
     id: 'orebuyer',
-    name: 'Скупщик',
+    name: 'Скупщик руды',
     icon: '🏷️',
     accent: '#e0b34a',
     cost: 80,
     input: { ore: 1 },
     output: {},
     outCap: 0,
+    income: 2,
+  },
+  scrapbuyer: {
+    id: 'scrapbuyer',
+    name: 'Скупщик слитков',
+    icon: '⚖️',
+    accent: '#a9b7c6',
+    cost: 90,
+    input: { ingot: 1 },
+    output: {},
+    outCap: 0,
+    income: 3,
+  },
+  gearbuyer: {
+    id: 'gearbuyer',
+    name: 'Скупщик шестерён',
+    icon: '🔩',
+    accent: '#f0b429',
+    cost: 90,
+    input: { gear: 1 },
+    output: {},
+    outCap: 0,
     income: 5,
+  },
+  framebuyer: {
+    id: 'framebuyer',
+    name: 'Скупщик каркасов',
+    icon: '🧱',
+    accent: '#8b7dff',
+    cost: 120,
+    input: { frame: 1 },
+    output: {},
+    outCap: 0,
+    income: 12,
   },
   warehouse: {
     id: 'warehouse',
@@ -194,46 +230,18 @@ export interface LevelDef {
   readonly name: string;
   readonly subtitle: string;
   readonly brief: string;
+  /** Цель в рублях. */
   readonly goal: number;
   readonly startMoney: number;
-  /** Что доступно в палитре — в этом же порядке идут горячие клавиши 1–8. */
+  /** Что доступно в палитре — в этом же порядке идут горячие клавиши 1–9. */
   readonly available: readonly BuildingId[];
   readonly presets: readonly LevelPreset[];
+  /** Клетки, на которые нельзя строить. */
+  readonly blocked?: ReadonlyArray<readonly [number, number]>;
+  /** Жёсткий лимит времени в секундах: не успел — проиграл. */
+  readonly timeLimit?: number;
+  /** Мягкий норматив в секундах: уложился — третья звезда. */
+  readonly parTime?: number;
+  /** Запрет сноса: что построил, то и работает. */
+  readonly noDemolish?: boolean;
 }
-
-export const LEVELS: readonly LevelDef[] = [
-  {
-    id: 1,
-    name: 'Открытая цепочка',
-    subtitle: 'Стройка с нуля',
-    brief:
-      'Классическая цепочка: руда → слиток → пластина → каркас и модуль. Рудник бесконечен, ' +
-      'места хватает на всё. Освойтесь с балансом и заработайте 2000 ₽.',
-    goal: 2000,
-    startMoney: 300,
-    available: ['mine', 'smelter', 'press', 'cutter', 'welder', 'assembler', 'warehouse', 'port'],
-    presets: [],
-  },
-  {
-    id: 2,
-    name: 'Замкнутый цикл',
-    subtitle: 'Рудник кончается',
-    brief:
-      'На карте стоит один рудник, и поставить свой нельзя. Его залежи конечны, но Рециклер ' +
-      'возвращает слитки обратно в шахту: 1 слиток → +2 к залежам. Замкните цикл, а излишек ' +
-      'пускайте в производство. Если рудник иссякнет — цепочка умрёт.',
-    goal: 600,
-    startMoney: 260,
-    available: [
-      'smelter',
-      'press',
-      'cutter',
-      'crusher',
-      'welder',
-      'assembler',
-      'warehouse',
-      'port',
-    ],
-    presets: [{ type: 'mine', r: 4, c: 4, deposit: 200, rate: 2 }],
-  },
-];

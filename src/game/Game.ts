@@ -1,7 +1,6 @@
 import {
   BUILDINGS,
   COLS,
-  LEVELS,
   REFUND_RATE,
   ROWS,
   TICK_MS,
@@ -10,6 +9,7 @@ import {
   type LevelPreset,
   type ResourceId,
 } from './data';
+import { LEVELS } from './levels';
 import type { Building, GameEvent, GameOverReason, PlaceResult } from './types';
 
 /** Правила, по которым живёт завод. */
@@ -43,6 +43,10 @@ export class Game {
 
   money = 0;
   earned = 0;
+  /** Время симуляции с начала уровня, мс. */
+  elapsedMs = 0;
+  /** Сколько заводов потеряно взрывами (для звёзд). */
+  explosions = 0;
   started = false;
   paused = false;
   speed: 1 | 2 | 3 = 1;
@@ -93,6 +97,16 @@ export class Game {
     return r >= 0 && r < ROWS && c >= 0 && c < COLS;
   }
 
+  /** Клетка в стене уровня — строить нельзя. */
+  isBlocked(r: number, c: number): boolean {
+    const blocked = this.level.blocked;
+    if (!blocked) return false;
+    for (const [br, bc] of blocked) {
+      if (br === r && bc === c) return true;
+    }
+    return false;
+  }
+
   /** Самая дешёвая постройка текущего уровня — порог банкротства. */
   get cheapest(): number {
     return Math.min(...this.level.available.map((id) => BUILDINGS[id].cost));
@@ -121,6 +135,10 @@ export class Game {
   place(type: BuildingId, r: number, c: number): PlaceResult {
     if (this.over) return 'out';
     if (!this.inBounds(r, c)) return 'out';
+    if (this.isBlocked(r, c)) {
+      this.emit({ kind: 'toast', text: 'Здесь стена — строить нельзя', tone: 'bad' });
+      return 'out';
+    }
     if (!this.level.available.includes(type)) {
       this.emit({ kind: 'toast', text: 'На этом уровне такое не построить', tone: 'bad' });
       return 'out';
@@ -156,6 +174,11 @@ export class Game {
   demolish(r: number, c: number): boolean {
     const building = this.at(r, c);
     if (!building) return false;
+
+    if (this.level.noDemolish) {
+      this.emit({ kind: 'toast', text: 'На этом уровне снос запрещён', tone: 'bad' });
+      return false;
+    }
 
     const def = BUILDINGS[building.type];
     // за предустановленные здания денег не возвращаем — иначе это печатный станок
@@ -214,6 +237,8 @@ export class Game {
   }
 
   private tick(): void {
+    this.elapsedMs += TICK_MS;
+
     // порядок обхода случайный, иначе первые клетки всегда объедают последние
     const list = this.buildings();
     shuffle(list);
@@ -225,6 +250,13 @@ export class Game {
 
     this.checkBankruptcy();
     this.checkDepletion();
+    this.checkDeadline();
+  }
+
+  private checkDeadline(): void {
+    const limit = this.level.timeLimit;
+    if (limit === undefined || this.won) return;
+    if (this.elapsedMs > limit * 1000) this.finish('timeout');
   }
 
   /** Завод сам забирает сырьё у соседей — ровно столько, сколько нужно на такт. */
@@ -353,6 +385,7 @@ export class Game {
 
   private destroy(building: Building): void {
     this.grid[idx(building.r, building.c)] = null;
+    this.explosions += 1;
 
     const reason =
       building.warn === 'over'
@@ -425,6 +458,8 @@ export class Game {
     this.grid.fill(null);
     this.money = this.level.startMoney;
     this.earned = 0;
+    this.elapsedMs = 0;
+    this.explosions = 0;
     this.started = true;
     this.paused = false;
     this.speed = 1;

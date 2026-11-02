@@ -84,9 +84,13 @@ header {
   background: var(--panel-2);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 5px 6px;
+  padding: 5px 8px;
   cursor: pointer;
-  max-width: 190px;
+  max-width: 230px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
 }
 
 .level-select:hover {
@@ -682,6 +686,7 @@ aside::-webkit-scrollbar-thumb {
 
 .sheet-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -714,6 +719,171 @@ aside::-webkit-scrollbar-thumb {
 
 .stats-final b {
   font-size: 19px;
+}
+
+/* ---------- карта уровней ---------- */
+#levelmap {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(4, 8, 12, 0.82);
+  backdrop-filter: blur(8px);
+}
+
+#levelmap.hidden {
+  display: none;
+}
+
+.map-sheet {
+  width: min(880px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 22px 24px 26px;
+  border: 1px solid #2b3e4d;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #12202b, #0c151d);
+  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.7);
+}
+
+.map-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.map-head h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.map-close {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.map-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.map-unlock {
+  padding: 6px 12px;
+  font-size: 12px;
+  border-radius: 8px;
+  border: 1px dashed #3a4f60;
+  background: #16232e;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+.map-unlock:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.map-act {
+  margin-top: 18px;
+}
+
+.map-act-title {
+  margin-bottom: 8px;
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.map-node {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 76px;
+  padding: 8px 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #15222d, #101a23);
+  text-align: left;
+  cursor: pointer;
+}
+
+.map-node:hover:not(:disabled) {
+  border-color: #39505f;
+  background: #1b2a37;
+}
+
+.map-node.done {
+  border-color: #2e6b45;
+}
+
+.map-node.current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.map-node.locked {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.map-node.timed .map-num::after {
+  content: " ⏱";
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+.map-num {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffd166;
+  font-variant-numeric: tabular-nums;
+}
+
+.map-name {
+  font-size: 10px;
+  line-height: 1.25;
+  color: var(--dim);
+}
+
+.map-stars {
+  margin-top: auto;
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.map-stars .on {
+  color: #ffd166;
+}
+
+.map-stars .off {
+  color: #2c3f4e;
+}
+
+.win-stars {
+  margin: 2px 0 12px;
+  font-size: 30px;
+  letter-spacing: 6px;
+  color: #ffd166;
+}
+
+.dim {
+  color: var(--dim);
+}
+
+#goal-text.urgent {
+  color: var(--bad);
 }
 
 /* =====================================================================
@@ -939,6 +1109,18 @@ aside::-webkit-scrollbar-thumb {
   .toast {
     font-size: 11.5px;
     padding: 6px 12px;
+  }
+
+  .map-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .map-sheet {
+    padding: 18px 16px 20px;
+  }
+
+  .sheet-actions .go {
+    min-width: 130px;
   }
 }
 

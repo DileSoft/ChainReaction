@@ -16,7 +16,7 @@
           ЦЕПНАЯ РЕАКЦИЯ
           <small>симулятор производственных цепочек</small>
         </span>
-        <select id="level-select" class="level-select" title="Уровень"></select>
+        <button id="btn-map" class="level-select" title="Карта уровней">Ур. 1</button>
       </div>
 
       <div class="stats">
@@ -77,6 +77,21 @@
   <div id="toasts"></div>
 
   <div id="build-info"></div>
+
+  <div id="levelmap" class="hidden">
+    <div class="map-sheet">
+      <div class="map-head">
+        <div>
+          <div class="sub">Кампания</div>
+          <h2>30 уровней</h2>
+        </div>
+        <div class="map-actions">
+          <button id="map-close" class="map-close" title="Закрыть">✕</button>
+        </div>
+      </div>
+      <div id="map-body"></div>
+    </div>
+  </div>
 
   <div id="modal" class="hidden">
     <div class="sheet" id="sheet"></div>

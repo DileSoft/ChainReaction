@@ -1,15 +1,17 @@
 import {
   BUILDINGS,
-  LEVELS,
   RESOURCES,
   type BuildingDef,
   type BuildingId,
   type ResourceId,
 } from '../game/data';
+import { LEVELS } from '../game/levels';
 import type { Game } from '../game/Game';
 import type { Renderer } from '../game/Renderer';
 import type { Sound } from '../game/Sound';
 import type { Building, Tool } from '../game/types';
+import { LevelMap } from './LevelMap';
+import { loadProgress, recordResult, unlockAll, type Progress } from './progress';
 
 interface SheetButton {
   label: string;
@@ -24,6 +26,13 @@ function must<T extends HTMLElement>(id: string): T {
 }
 
 const rubles = (value: number): string => `${Math.round(value).toLocaleString('ru-RU')} ₽`;
+
+const clock = (ms: number): string => {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(total / 60);
+  const seconds = total % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+};
 
 export class App {
   private readonly money = must<HTMLElement>('money');
@@ -40,13 +49,16 @@ export class App {
   private readonly toasts = must<HTMLElement>('toasts');
   private readonly modal = must<HTMLElement>('modal');
   private readonly sheet = must<HTMLElement>('sheet');
-  private readonly levelSelect = must<HTMLSelectElement>('level-select');
+  private readonly mapBtn = must<HTMLButtonElement>('btn-map');
 
   private readonly pauseBtn = must<HTMLButtonElement>('btn-pause');
   private readonly speedBtn = must<HTMLButtonElement>('btn-speed');
   private readonly soundBtn = must<HTMLButtonElement>('btn-sound');
   private readonly helpBtn = must<HTMLButtonElement>('btn-help');
   private readonly restartBtn = must<HTMLButtonElement>('btn-restart');
+
+  private readonly progress: Progress = loadProgress();
+  private readonly levelMap: LevelMap;
 
   private tool: Tool | null = null;
   private paletteTypes: BuildingId[] = [];
@@ -56,7 +68,14 @@ export class App {
     private readonly renderer: Renderer,
     private readonly sound: Sound,
   ) {
-    this.initLevelSelect();
+    this.levelMap = new LevelMap(
+      must<HTMLElement>('levelmap'),
+      must<HTMLElement>('map-body'),
+      (index) => this.changeLevel(index),
+    );
+
+    this.initMapButton();
+    this.initDevTools();
     this.rebuildPalette();
     this.bindEvents();
     this.showIntro();
@@ -66,29 +85,51 @@ export class App {
   /* уровни                                                            */
   /* ---------------------------------------------------------------- */
 
-  private initLevelSelect(): void {
-    this.levelSelect.innerHTML = LEVELS.map(
-      (level, index) =>
-        `<option value="${index}">Ур. ${index + 1} · ${level.name}</option>`,
-    ).join('');
-    this.levelSelect.value = String(this.game.levelIndex);
-    this.levelSelect.addEventListener('change', () => {
-      this.changeLevel(Number(this.levelSelect.value));
+  private initMapButton(): void {
+    this.updateLevelLabel();
+    this.mapBtn.addEventListener('click', () => {
+      this.levelMap.toggle(this.progress, this.game.levelIndex);
     });
+  }
+
+  private updateLevelLabel(): void {
+    const level = this.game.level;
+    this.mapBtn.textContent = `Ур. ${level.id} · ${level.name}`;
+  }
+
+  /** Кнопка «открыть всё» — только в dev-сборке. */
+  private initDevTools(): void {
+    if (!import.meta.env.DEV) return;
+
+    const actions = document.querySelector('.map-actions');
+    if (!actions) return;
+
+    const button = document.createElement('button');
+    button.className = 'map-unlock';
+    button.textContent = 'Открыть всё';
+    button.title = 'Dev: открыть все уровни без звёзд';
+    button.addEventListener('click', () => {
+      unlockAll(this.progress, LEVELS.length);
+      this.levelMap.open(this.progress, this.game.levelIndex);
+      this.toast('Все уровни открыты', 'good');
+    });
+
+    actions.insertBefore(button, actions.firstChild);
   }
 
   private changeLevel(index: number): void {
     this.game.startLevel(index);
-    this.levelSelect.value = String(this.game.levelIndex);
 
     this.renderer.clearEffects();
     this.clearTool();
     this.rebuildPalette();
     this.speedBtn.textContent = `${this.game.speed}×`;
     this.modal.classList.add('hidden');
+    this.levelMap.close();
+    this.updateLevelLabel();
     this.updateHud();
 
-    this.toast(`Уровень ${index + 1}: ${this.game.level.name}`, 'good');
+    this.toast(`Уровень ${this.game.level.id}: ${this.game.level.name}`, 'good');
     this.showIntro();
   }
 
@@ -321,6 +362,10 @@ export class App {
         this.selectTool('demolish');
         return;
       }
+      if (event.key.toLowerCase() === 'm') {
+        this.levelMap.toggle(this.progress, this.game.levelIndex);
+        return;
+      }
       const index = Number.parseInt(event.key, 10);
       if (index >= 1 && index <= this.paletteTypes.length) {
         this.selectTool(this.paletteTypes[index - 1]!);
@@ -458,12 +503,11 @@ export class App {
 
   showIntro(): void {
     const level = this.game.level;
-    const index = this.game.levelIndex;
 
     this.setPaused(this.game.started || this.game.paused);
 
     this.openSheet(
-      `<div class="sub">Уровень ${index + 1} · ${level.subtitle}</div>
+      `<div class="sub">Уровень ${level.id} · ${level.subtitle}</div>
        <h1>${level.name}</h1>
        <p>${level.brief}</p>
        <div class="rules">
@@ -502,55 +546,91 @@ export class App {
     );
   }
 
+  /** Звёзды: 1 — пройдено, 2 — без взрывов, 3 — ещё и в норматив. */
+  private starsFor(): number {
+    if (this.game.explosions > 0) return 1;
+    const par = this.game.level.parTime;
+    if (par !== undefined && this.game.elapsedMs > par * 1000) return 2;
+    return 3;
+  }
+
   private showWin(): void {
     const level = this.game.level;
-    const hasNext = this.game.levelIndex + 1 < LEVELS.length;
+    const stars = this.starsFor();
+    recordResult(this.progress, level.id, stars, this.game.elapsedMs);
 
     this.setPaused(true);
 
+    const hasNext = this.game.levelIndex + 1 < LEVELS.length;
     const buttons: SheetButton[] = [];
+
     if (hasNext) {
       buttons.push({
         label: 'Следующий уровень',
         action: () => this.changeLevel(this.game.levelIndex + 1),
       });
-    } else {
-      buttons.push({ label: 'Начать заново', action: () => this.restart() });
     }
+    buttons.push({
+      label: 'Карта',
+      secondary: true,
+      action: () => this.levelMap.open(this.progress, this.game.levelIndex),
+    });
     buttons.push({
       label: 'Остаться',
       secondary: true,
       action: () => this.setPaused(false),
     });
 
+    const starMarkup =
+      '★'.repeat(stars) + '☆'.repeat(3 - stars);
+
     this.openSheet(
-      `<div class="sub">Уровень ${this.game.levelIndex + 1} пройден</div>
+      `<div class="sub">Уровень ${level.id} пройден</div>
        <h1>${level.name} — готово!</h1>
-       <p>Цель выполнена: производство держится, стабильность под контролем.</p>
+       <div class="win-stars">${starMarkup}</div>
+       <p>Цель выполнена. <span class="dim">${this.starHint(stars)}</span></p>
        <div class="stats-final">
          <div><span>Заработано</span><b>${rubles(this.game.earned)}</b></div>
-         <div><span>Заводов</span><b>${this.game.buildings().length}</b></div>
+         <div><span>Время</span><b>${clock(this.game.elapsedMs)}</b></div>
        </div>`,
       buttons,
     );
   }
 
+  private starHint(stars: number): string {
+    if (stars === 3) return 'Идеально: ни одного взрыва и в норматив.';
+    if (stars === 2) return 'Без взрывов. Уложитесь в норматив — будет третья звезда.';
+    return 'Без взрывов — вторая звезда, в норматив — третья.';
+  }
+
   private showGameOver(): void {
-    const depleted = this.game.overReason === 'depleted';
+    const reason = this.game.overReason;
+    const depleted = reason === 'depleted';
+    const timeout = reason === 'timeout';
+
+    const title = timeout ? 'Смена окончена' : depleted ? 'Шахта иссякла' : 'Завод обанкротился';
+    const text = timeout
+      ? 'Время вышло, а цель ещё не набрана. Попробуйте короче: быстрый доход, потом глубина.'
+      : depleted
+        ? 'Залежи рудника закончились, а замкнуть цикл не успели. Рециклер вернул бы слитки в шахту — но строить его нужно было раньше.'
+        : 'Денег не хватает даже на самый дешёвый завод, а доходов нет. Цепочка разорвана.';
 
     this.openSheet(
       `<div class="sub bad">Производство остановлено</div>
-       <h1>${depleted ? 'Шахта иссякла' : 'Завод обанкротился'}</h1>
-       <p>${
-         depleted
-           ? 'Залежи рудника закончились, а замкнуть цикл не успели. Рециклер вернул бы слитки в шахту — но строить его нужно было раньше.'
-           : 'Денег не хватает даже на самый дешёвый завод, а доходов нет. Цепочка разорвана.'
-       }</p>
+       <h1>${title}</h1>
+       <p>${text}</p>
        <div class="stats-final">
          <div><span>Заработано</span><b>${rubles(this.game.earned)}</b></div>
          <div><span>Заводов</span><b>${this.game.buildings().length}</b></div>
        </div>`,
-      [{ label: 'Начать заново', action: () => this.restart() }],
+      [
+        { label: 'Ещё раз', action: () => this.restart() },
+        {
+          label: 'Карта',
+          secondary: true,
+          action: () => this.levelMap.open(this.progress, this.game.levelIndex),
+        },
+      ],
     );
   }
 
@@ -592,7 +672,17 @@ export class App {
       stability > 60 ? 'var(--good)' : stability > 30 ? 'var(--warn)' : 'var(--bad)';
 
     const earned = Math.min(this.game.earned, level.goal);
-    this.goalText.textContent = `${earned.toLocaleString('ru-RU')} / ${level.goal.toLocaleString('ru-RU')} ₽`;
+    let goalLine = `${earned.toLocaleString('ru-RU')} / ${level.goal.toLocaleString('ru-RU')} ₽`;
+
+    if (level.timeLimit !== undefined) {
+      const left = level.timeLimit * 1000 - this.game.elapsedMs;
+      goalLine += ` · ⏱ ${clock(Math.max(0, left))}`;
+      this.goalText.classList.toggle('urgent', left < 20000);
+    } else {
+      this.goalText.classList.remove('urgent');
+    }
+
+    this.goalText.textContent = goalLine;
     this.goalBar.style.width = `${Math.min(100, (this.game.earned / level.goal) * 100)}%`;
 
     for (const card of this.palette.children) {

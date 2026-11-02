@@ -46,7 +46,7 @@ export type GameEvent =
   | { kind: 'win' }
   | { kind: 'gameover'; reason: GameOverReason };
 
-export type GameOverReason = 'bankrupt' | 'depleted';
+export type GameOverReason = 'bankrupt' | 'depleted' | 'timeout';
 
 export type PlaceResult = 'ok' | 'occupied' | 'poor' | 'out';
 

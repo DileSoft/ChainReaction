@@ -15,9 +15,17 @@ const sound = new Sound();
 const renderer = new Renderer(canvas, game, sound);
 const app = new App(game, renderer, sound);
 
-// в dev-сборке удобно ковырять состояние из консоли: __game
+// в dev-сборке удобно ковырять состояние из консоли и гонять автопроверку уровней
 if (import.meta.env.DEV) {
-  (window as unknown as { __game?: Game }).__game = game;
+  const host = window as unknown as {
+    __game?: Game;
+    __verify?: () => unknown;
+  };
+  host.__game = game;
+  void import('./dev/verify').then(({ verifyLevels }) => {
+    // отдельная модель: проверка не трогает прогресс и не мешает живому циклу
+    host.__verify = () => verifyLevels(new Game());
+  });
 }
 
 app.start();
