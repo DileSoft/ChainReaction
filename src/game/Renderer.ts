@@ -10,6 +10,7 @@ import {
   type BuildingId,
   type ResourceId,
 } from './data';
+import { buildingIcon, iconDataUrl } from './icons';
 import type { Game } from './Game';
 import type { Sound } from './Sound';
 import type { Building, Cell, Tool } from './types';
@@ -65,6 +66,7 @@ export class Renderer {
   private readonly rings: Ring[] = [];
   private readonly floats: FloatingText[] = [];
   private readonly transfers: TransferFx[] = [];
+  private readonly icons = new Map<BuildingId, HTMLImageElement>();
   private shake = 0;
 
   constructor(
@@ -81,6 +83,13 @@ export class Renderer {
     canvas.height = BOARD_H * dpr;
     canvas.style.aspectRatio = '1 / 1';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // иконки грузим заранее, чтобы canvas не мигал эмодзи
+    for (const id of Object.keys(BUILDINGS) as BuildingId[]) {
+      const image = new Image();
+      image.src = iconDataUrl(buildingIcon(id, 64));
+      this.icons.set(id, image);
+    }
 
     game.on((event) => {
       switch (event.kind) {
@@ -315,6 +324,22 @@ export class Renderer {
     }
   }
 
+  /** Иконка здания: SVG-картинка, а до её загрузки — эмодзи-фолбэк. */
+  private drawIcon(type: BuildingId, cx: number, cy: number, size: number): void {
+    const ctx = this.ctx;
+    const image = this.icons.get(type);
+    if (image && image.complete && image.naturalWidth > 0) {
+      ctx.drawImage(image, cx - size / 2, cy - size / 2, size, size);
+      return;
+    }
+
+    const def = BUILDINGS[type];
+    ctx.font = `${Math.round(size * 0.92)}px "Segoe UI Emoji","Apple Color Emoji",sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(def.icon, cx, cy);
+  }
+
   private drawGhost(type: BuildingId, r: number, c: number): void {
     const ctx = this.ctx;
     const def = BUILDINGS[type];
@@ -333,10 +358,7 @@ export class Renderer {
     ctx.stroke();
 
     ctx.globalAlpha = 0.8;
-    ctx.font = '24px "Segoe UI Emoji","Apple Color Emoji",sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(def.icon, x + CELL / 2, y + CELL / 2);
+    this.drawIcon(type, x + CELL / 2, y + CELL / 2, 28);
     ctx.restore();
   }
 
@@ -387,10 +409,7 @@ export class Renderer {
 
     ctx.save();
     ctx.globalAlpha = building.warn ? 0.55 : 0.95;
-    ctx.font = '24px "Segoe UI Emoji","Apple Color Emoji","Segoe UI Symbol",sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(def.icon, x + CELL / 2 + 2, y + CELL / 2 - 8);
+    this.drawIcon(building.type, x + CELL / 2 + 2, y + CELL / 2 - 8, 26);
     ctx.restore();
 
     const outputKey = Object.keys(def.output)[0] as ResourceId | undefined;

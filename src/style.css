@@ -321,6 +321,10 @@ aside::-webkit-scrollbar-thumb {
   border: 1px solid color-mix(in srgb, var(--c) 45%, transparent);
 }
 
+.ico svg {
+  display: block;
+}
+
 .info {
   flex: 1;
   min-width: 0;
@@ -369,13 +373,15 @@ aside::-webkit-scrollbar-thumb {
   color: #b9c9d6;
 }
 
-.chip::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--c);
-  box-shadow: 0 0 6px var(--c);
+.chip svg {
+  flex: 0 0 auto;
+  display: block;
+}
+
+.h-ico {
+  display: inline-flex;
+  vertical-align: -3px;
+  margin-right: 6px;
 }
 
 .arrow {

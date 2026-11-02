@@ -6,6 +6,7 @@ import {
   type ResourceId,
 } from '../game/data';
 import { LEVELS } from '../game/levels';
+import { buildingIcon, resourceIcon } from '../game/icons';
 import type { Game } from '../game/Game';
 import type { Renderer } from '../game/Renderer';
 import type { Sound } from '../game/Sound';
@@ -151,7 +152,7 @@ export class App {
       card.className = 'card';
       card.dataset.type = id;
       card.innerHTML = `
-        <span class="ico" style="--c: ${def.accent}">${def.icon}</span>
+        <span class="ico" style="--c: ${def.accent}">${buildingIcon(id, 22)}</span>
         <span class="info">
           <span class="top"><b>${def.name}</b><em class="cost">${def.cost} ₽</em></span>
           <span class="rec">${this.recipeHtml(def)}</span>
@@ -195,7 +196,7 @@ export class App {
     }
 
     this.buildInfo.innerHTML =
-      `<h4 style="color:${def.accent}">${def.icon} ${def.name}</h4>` +
+      `<h4 style="color:${def.accent}"><span class="h-ico">${buildingIcon(id, 18)}</span>${def.name}</h4>` +
       `<div class="info-recipe">${this.recipeHtml(def)}</div>` +
       `<div class="line"><span>Цена</span><b>${def.cost} ₽</b></div>` +
       rows.join('');
@@ -217,7 +218,7 @@ export class App {
   }
 
   private chip(resource: ResourceId, amount: number): string {
-    return `<span class="chip" style="--c: ${RESOURCES[resource].color}">${amount} ${RESOURCES[resource].name}</span>`;
+    return `<span class="chip" style="--c: ${RESOURCES[resource].color}">${resourceIcon(resource, 12)}${amount} ${RESOURCES[resource].name}</span>`;
   }
 
   private recipeHtml(def: BuildingDef): string {
@@ -438,7 +439,7 @@ export class App {
       rows.push('<div class="warn-line">⚠ Нехватка сырья</div>');
     }
 
-    this.tooltip.innerHTML = `<h4 style="color:${def.accent}">${def.icon} ${def.name}</h4>${rows.join('')}`;
+    this.tooltip.innerHTML = `<h4 style="color:${def.accent}"><span class="h-ico">${buildingIcon(building.type, 16)}</span>${def.name}</h4>${rows.join('')}`;
     this.tooltip.classList.add('show');
   }
 

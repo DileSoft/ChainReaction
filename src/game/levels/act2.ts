@@ -63,7 +63,7 @@ export const ACT2: readonly LevelDef[] = [
       'ветку: либо пластины, либо модули.',
     goal: 600,
     startMoney: 700,
-    available: ['smelter', 'press', 'cutter', 'welder', 'assembler', 'warehouse', 'port'],
+    available: ['smelter', 'press', 'cutter', 'welder', 'assembler', 'warehouse', 'scrapbuyer', 'port'],
     presets: [{ type: 'mine', r: 4, c: 4 }],
     parTime: 240,
   },
