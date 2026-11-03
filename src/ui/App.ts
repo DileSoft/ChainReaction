@@ -3,6 +3,7 @@ import {
   RESOURCES,
   type BuildingDef,
   type BuildingId,
+  type LevelDef,
   type ResourceId,
 } from '../game/data';
 import { LEVELS } from '../game/levels';
@@ -55,6 +56,7 @@ export class App {
   private readonly pauseBtn = must<HTMLButtonElement>('btn-pause');
   private readonly speedBtn = must<HTMLButtonElement>('btn-speed');
   private readonly soundBtn = must<HTMLButtonElement>('btn-sound');
+  private readonly missionBtn = must<HTMLButtonElement>('btn-mission');
   private readonly helpBtn = must<HTMLButtonElement>('btn-help');
   private readonly restartBtn = must<HTMLButtonElement>('btn-restart');
 
@@ -63,6 +65,8 @@ export class App {
 
   private tool: Tool | null = null;
   private paletteTypes: BuildingId[] = [];
+  /** Пауза, с которой игра ушла на просмотр миссии; null — миссия не открыта. */
+  private missionResume: boolean | null = null;
 
   constructor(
     private readonly game: Game,
@@ -126,6 +130,7 @@ export class App {
     this.rebuildPalette();
     this.speedBtn.textContent = `${this.game.speed}×`;
     this.modal.classList.add('hidden');
+    this.missionResume = null;
     this.levelMap.close();
     this.updateLevelLabel();
     this.updateHud();
@@ -345,6 +350,7 @@ export class App {
       this.soundBtn.textContent = this.sound.enabled ? '🔊' : '🔇';
     });
     this.helpBtn.addEventListener('click', () => this.showHelp());
+    this.missionBtn.addEventListener('click', () => this.showMission());
     this.restartBtn.addEventListener('click', () => {
       if (confirm('Начать уровень заново? Текущий завод будет уничтожен.')) this.restart();
     });
@@ -356,6 +362,10 @@ export class App {
         return;
       }
       if (event.key === 'Escape') {
+        if (this.missionResume !== null) {
+          this.closeMission();
+          return;
+        }
         this.clearTool();
         return;
       }
@@ -364,7 +374,12 @@ export class App {
         return;
       }
       if (event.key.toLowerCase() === 'm') {
+        if (this.missionResume !== null) return;
         this.levelMap.toggle(this.progress, this.game.levelIndex);
+        return;
+      }
+      if (event.code === 'KeyI') {
+        this.showMission();
         return;
       }
       const index = Number.parseInt(event.key, 10);
@@ -506,16 +521,10 @@ export class App {
     const level = this.game.level;
 
     this.setPaused(this.game.started || this.game.paused);
+    this.missionResume = null;
 
     this.openSheet(
-      `<div class="sub">Уровень ${level.id} · ${level.subtitle}</div>
-       <h1>${level.name}</h1>
-       <p>${level.brief}</p>
-       <div class="rules">
-         <div class="rule"><i>🔥</i><span>Не хватает сырья — завод <b>перегревается</b>.</span></div>
-         <div class="rule"><i>📦</i><span>Продукцию не забирают, склад переполнен — завод <b>взрывается от давления</b>.</span></div>
-         <div class="rule good"><i>🎯</i><span>Цель: заработать <b>${level.goal.toLocaleString('ru-RU')} ₽</b>. Стартовый капитал: <b>${rubles(level.startMoney)}</b>.</span></div>
-       </div>
+      `${this.briefMarkup(level)}
        <p style="font-size:12.5px">Соседние клетки соединяются сами. Пробел — пауза, пока можно спокойно строить.</p>`,
       [
         {
@@ -528,6 +537,63 @@ export class App {
         },
       ],
     );
+  }
+
+  /** Текст брифа — общий для старта уровня и для просмотра миссии по ходу игры. */
+  private briefMarkup(level: LevelDef): string {
+    return `<div class="sub">Уровень ${level.id} · ${level.subtitle}</div>
+       <h1>${level.name}</h1>
+       <p>${level.brief}</p>
+       <div class="rules">
+         <div class="rule"><i>🔥</i><span>Не хватает сырья — завод <b>перегревается</b>.</span></div>
+         <div class="rule"><i>📦</i><span>Продукцию не забирают, склад переполнен — завод <b>взрывается от давления</b>.</span></div>
+         <div class="rule good"><i>🎯</i><span>Цель: заработать <b>${level.goal.toLocaleString('ru-RU')} ₽</b>. Стартовый капитал: <b>${rubles(level.startMoney)}</b>.</span></div>
+       </div>`;
+  }
+
+  /** Перечитать описание миссии: игра встаёт на паузу и возвращается в прежнее состояние. */
+  showMission(): void {
+    if (!this.game.started) {
+      this.showIntro();
+      return;
+    }
+    if (this.game.over) return;
+
+    const level = this.game.level;
+
+    if (this.levelMap.isOpen) this.levelMap.close();
+
+    // повторное открытие не должно «запоминать» собственную паузу
+    if (this.missionResume === null) {
+      this.missionResume = this.game.paused;
+      this.setPaused(true);
+    }
+
+    const stats: string[] = [
+      `<div><span>Заработано</span><b style="font-size:15px">${rubles(this.game.earned)} / ${rubles(level.goal)}</b></div>`,
+      `<div><span>В игре</span><b style="font-size:15px">${clock(this.game.elapsedMs)}</b></div>`,
+    ];
+
+    if (level.timeLimit !== undefined) {
+      const left = Math.max(0, level.timeLimit * 1000 - this.game.elapsedMs);
+      stats.push(`<div><span>Осталось</span><b style="font-size:15px">${clock(left)}</b></div>`);
+    }
+
+    this.openSheet(
+      `${this.briefMarkup(level)}
+       <div class="stats-final">${stats.join('')}</div>
+       ${level.parTime !== undefined ? `<p style="font-size:12px">Норматив на третью звезду — ${clock(level.parTime * 1000)}.</p>` : ''}
+       ${level.noDemolish ? '<p style="font-size:12px">Снос на этом уровне запрещён: что построено — то и работает.</p>' : ''}`,
+      [{ label: 'Продолжить', action: () => this.closeMission() }],
+    );
+  }
+
+  private closeMission(): void {
+    if (this.missionResume === null) return;
+    const resume = this.missionResume;
+    this.missionResume = null;
+    this.modal.classList.add('hidden');
+    this.setPaused(resume);
   }
 
   private showHelp(): void {
@@ -639,6 +705,7 @@ export class App {
     this.game.restart();
     this.renderer.clearEffects();
     this.clearTool();
+    this.missionResume = null;
     this.setPaused(false);
     this.speedBtn.textContent = '1×';
     this.updateHud();
@@ -657,6 +724,7 @@ export class App {
 
   private togglePause(): void {
     if (!this.game.started || this.game.over) return;
+    if (this.missionResume !== null) return;
     this.setPaused(!this.game.paused);
   }
 
