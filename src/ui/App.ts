@@ -14,6 +14,7 @@ import type { Sound } from '../game/Sound';
 import type { Building, Tool } from '../game/types';
 import { LevelMap } from './LevelMap';
 import { loadProgress, recordResult, unlockAll, type Progress } from './progress';
+import type { LevelEditor } from '../dev/levelEditor';
 
 interface SheetButton {
   label: string;
@@ -67,6 +68,12 @@ export class App {
   private paletteTypes: BuildingId[] = [];
   /** Пауза, с которой игра ушла на просмотр миссии; null — миссия не открыта. */
   private missionResume: boolean | null = null;
+  /** Dev-редактор уровней: грузится динамически и только в dev-сборке. */
+  private editor: LevelEditor | null = null;
+  /** Пауза, с которой игра ушла в редактор; null — редактор не открыт. */
+  private editorResume: boolean | null = null;
+  /** Играем черновик из редактора — результат не пишется в прогресс. */
+  private testingLevel = false;
 
   constructor(
     private readonly game: Game,
@@ -84,6 +91,10 @@ export class App {
     this.rebuildPalette();
     this.bindEvents();
     this.showIntro();
+
+    if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('editor')) {
+      void this.openEditor();
+    }
   }
 
   /* ---------------------------------------------------------------- */
@@ -109,6 +120,16 @@ export class App {
     const actions = document.querySelector('.map-actions');
     if (!actions) return;
 
+    const editorButton = document.createElement('button');
+    editorButton.className = 'map-unlock';
+    editorButton.textContent = 'Редактор';
+    editorButton.title = 'Dev: редактор уровней';
+    editorButton.addEventListener('click', () => {
+      this.levelMap.close();
+      void this.openEditor();
+    });
+    actions.insertBefore(editorButton, actions.firstChild);
+
     const button = document.createElement('button');
     button.className = 'map-unlock';
     button.textContent = 'Открыть всё';
@@ -123,6 +144,7 @@ export class App {
   }
 
   private changeLevel(index: number): void {
+    this.testingLevel = false;
     this.game.startLevel(index);
 
     this.renderer.clearEffects();
@@ -137,6 +159,60 @@ export class App {
 
     this.toast(`Уровень ${this.game.level.id}: ${this.game.level.name}`, 'good');
     this.showIntro();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* dev: редактор уровней                                             */
+  /* ---------------------------------------------------------------- */
+
+  private async openEditor(): Promise<void> {
+    if (!import.meta.env.DEV) return;
+
+    if (this.editorResume === null) {
+      this.editorResume = this.game.paused || !this.game.started;
+      this.setPaused(true);
+    }
+
+    if (!this.editor) {
+      const { LevelEditor } = await import('../dev/levelEditor');
+      if (!this.editor) {
+        this.editor = new LevelEditor(
+          (level) => this.startTestLevel(level),
+          () => this.closeEditor(),
+        );
+      }
+    }
+
+    this.levelMap.close();
+    this.editor.open();
+  }
+
+  private closeEditor(): void {
+    if (this.editorResume === null) return;
+    const resume = this.editorResume;
+    this.editorResume = null;
+    this.setPaused(resume);
+  }
+
+  /** Запустить черновик из редактора: прогресс не пишется, «следующего» уровня нет. */
+  private startTestLevel(level: LevelDef): void {
+    this.editorResume = null;
+    this.testingLevel = true;
+    this.editor?.close();
+
+    this.game.startLevelDef(level);
+    this.renderer.clearEffects();
+    this.clearTool();
+    this.rebuildPalette();
+    this.speedBtn.textContent = `${this.game.speed}×`;
+    this.modal.classList.add('hidden');
+    this.levelMap.close();
+    this.missionResume = null;
+    this.updateLevelLabel();
+    this.updateHud();
+    this.setPaused(false);
+
+    this.toast('Тестовый уровень: прогресс не сохраняется', 'good');
   }
 
   /* ---------------------------------------------------------------- */
@@ -356,6 +432,7 @@ export class App {
     });
 
     window.addEventListener('keydown', (event) => {
+      if (this.editor?.isOpen) return;
       if (event.code === 'Space') {
         event.preventDefault();
         this.togglePause();
@@ -624,35 +701,48 @@ export class App {
   private showWin(): void {
     const level = this.game.level;
     const stars = this.starsFor();
-    recordResult(this.progress, level.id, stars, this.game.elapsedMs);
+    const testing = this.testingLevel;
+    if (!testing) recordResult(this.progress, level.id, stars, this.game.elapsedMs);
 
     this.setPaused(true);
 
-    const hasNext = this.game.levelIndex + 1 < LEVELS.length;
+    const hasNext = !testing && this.game.levelIndex + 1 < LEVELS.length;
     const buttons: SheetButton[] = [];
 
-    if (hasNext) {
+    if (testing) {
       buttons.push({
-        label: 'Следующий уровень',
-        action: () => this.changeLevel(this.game.levelIndex + 1),
+        label: 'Вернуться в редактор',
+        action: () => void this.openEditor(),
+      });
+      buttons.push({
+        label: 'Заново',
+        secondary: true,
+        action: () => this.restart(),
+      });
+    } else {
+      if (hasNext) {
+        buttons.push({
+          label: 'Следующий уровень',
+          action: () => this.changeLevel(this.game.levelIndex + 1),
+        });
+      }
+      buttons.push({
+        label: 'Карта',
+        secondary: true,
+        action: () => this.levelMap.open(this.progress, this.game.levelIndex),
+      });
+      buttons.push({
+        label: 'Остаться',
+        secondary: true,
+        action: () => this.setPaused(false),
       });
     }
-    buttons.push({
-      label: 'Карта',
-      secondary: true,
-      action: () => this.levelMap.open(this.progress, this.game.levelIndex),
-    });
-    buttons.push({
-      label: 'Остаться',
-      secondary: true,
-      action: () => this.setPaused(false),
-    });
 
     const starMarkup =
       '★'.repeat(stars) + '☆'.repeat(3 - stars);
 
     this.openSheet(
-      `<div class="sub">Уровень ${level.id} пройден</div>
+      `<div class="sub">${testing ? 'Тестовый уровень · цель выполнена' : `Уровень ${level.id} пройден`}</div>
        <h1>${level.name} — готово!</h1>
        <div class="win-stars">${starMarkup}</div>
        <p>Цель выполнена. <span class="dim">${this.starHint(stars)}</span></p>
@@ -692,11 +782,13 @@ export class App {
        </div>`,
       [
         { label: 'Ещё раз', action: () => this.restart() },
-        {
-          label: 'Карта',
-          secondary: true,
-          action: () => this.levelMap.open(this.progress, this.game.levelIndex),
-        },
+        this.testingLevel
+          ? { label: 'Вернуться в редактор', secondary: true, action: () => void this.openEditor() }
+          : {
+              label: 'Карта',
+              secondary: true,
+              action: () => this.levelMap.open(this.progress, this.game.levelIndex),
+            },
       ],
     );
   }

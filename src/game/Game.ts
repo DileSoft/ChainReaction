@@ -453,6 +453,13 @@ export class Game {
     this.restart();
   }
 
+  /** Запустить произвольный уровень (редактор в dev-сборке), без привязки к кампании. */
+  startLevelDef(level: LevelDef): void {
+    this.level = level;
+    this.levelIndex = -1;
+    this.restart();
+  }
+
   /** Перезапуск текущего уровня: тот же уровень, те же предустановки. */
   restart(): void {
     this.grid.fill(null);
