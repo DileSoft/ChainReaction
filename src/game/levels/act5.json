@@ -1,0 +1,146 @@
+[
+  {
+    "id": 25,
+    "name": "Разделение",
+    "subtitle": "Один источник, две ветки",
+    "brief": "Рудник на поле один, но качает по две руды за такт. Разведите потоки: пластины на склад, шестерни и каркасы — в модули.",
+    "goal": 1500,
+    "startMoney": 700,
+    "available": [
+      "smelter",
+      "press",
+      "cutter",
+      "welder",
+      "assembler",
+      "warehouse",
+      "port"
+    ],
+    "presets": [
+      {
+        "type": "mine",
+        "r": 4,
+        "c": 4,
+        "rate": 2
+      }
+    ],
+    "parTime": 300
+  },
+  {
+    "id": 26,
+    "name": "Сталь и шестерни",
+    "subtitle": "Две линии",
+    "brief": "Большая цель требует двух независимых линий, которые делят одно сырьё. Считайте баланс до последнего звена.",
+    "goal": 2500,
+    "startMoney": 800,
+    "available": [
+      "mine",
+      "smelter",
+      "press",
+      "cutter",
+      "welder",
+      "assembler",
+      "warehouse",
+      "port"
+    ],
+    "presets": [],
+    "parTime": 360
+  },
+  {
+    "id": 27,
+    "name": "Без сноса",
+    "subtitle": "Ошибка стоит денег",
+    "brief": "Сносить нельзя: что поставили — то и работает. Просчитайте клетки до первого клика.",
+    "goal": 1200,
+    "startMoney": 400,
+    "available": [
+      "mine",
+      "smelter",
+      "press",
+      "warehouse"
+    ],
+    "presets": [],
+    "noDemolish": true,
+    "parTime": 300
+  },
+  {
+    "id": 28,
+    "name": "Дефицит",
+    "subtitle": "Кольцо на минималках",
+    "brief": "Залежей мало, а рудник жадный. Без Рециклера шахта опустеет быстрее, чем выйдете в плюс.",
+    "goal": 800,
+    "startMoney": 360,
+    "available": [
+      "smelter",
+      "press",
+      "warehouse",
+      "crusher"
+    ],
+    "presets": [
+      {
+        "type": "mine",
+        "r": 4,
+        "c": 4,
+        "deposit": 60,
+        "rate": 2
+      }
+    ],
+    "parTime": 300
+  },
+  {
+    "id": 29,
+    "name": "Пятилетка",
+    "subtitle": "План на четыре тысячи",
+    "brief": "Три минуты на всё. Пластины — быстрый старт, модули — основной доход. Держите темп.",
+    "goal": 4000,
+    "startMoney": 1000,
+    "available": [
+      "mine",
+      "smelter",
+      "press",
+      "cutter",
+      "welder",
+      "assembler",
+      "warehouse",
+      "port"
+    ],
+    "presets": [],
+    "timeLimit": 180,
+    "parTime": 150
+  },
+  {
+    "id": 30,
+    "name": "Цепная реакция",
+    "subtitle": "Финал",
+    "brief": "Конечный рудник, стены и четыре минуты. Замкните цикл, пробейтесь через лабиринт и соберите четыре тысячи.",
+    "goal": 2000,
+    "startMoney": 600,
+    "available": [
+      "smelter",
+      "press",
+      "cutter",
+      "crusher",
+      "welder",
+      "assembler",
+      "warehouse",
+      "port"
+    ],
+    "presets": [
+      {
+        "type": "mine",
+        "r": 2,
+        "c": 2,
+        "deposit": 800,
+        "rate": 3
+      }
+    ],
+    "blocked": [
+      [4, 3],
+      [4, 4],
+      [4, 5],
+      [6, 1],
+      [6, 2]
+    ],
+    "timeLimit": 240,
+    "parTime": 200
+  }
+]

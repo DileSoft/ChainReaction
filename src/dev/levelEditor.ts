@@ -14,7 +14,8 @@ import './levelEditor.css';
  * Dev-редактор уровней.
  *
  * Собирает `LevelDef` мышью и отдаёт готовый JSON, который можно вставить
- * в `src/game/levels/actN.ts`. Модуль грузится динамически только в dev-сборке.
+ * в один из файлов `src/game/levels/actN.json`. Модуль грузится динамически
+ * только в dev-сборке.
  */
 
 type PaintTool = 'building' | 'wall' | 'erase';
@@ -85,10 +86,10 @@ export class LevelEditor {
   private readonly testBtn: HTMLButtonElement;
   private readonly copyBtn: HTMLButtonElement;
   private readonly downloadBtn: HTMLButtonElement;
+  private readonly actBtn: HTMLButtonElement;
 
   private readonly cells: HTMLButtonElement[] = [];
   private draft: EditorDraft;
-  private painting = false;
   private openFlag = false;
 
   constructor(
@@ -156,7 +157,7 @@ export class LevelEditor {
 
             <div class="editor-presets-head">
               <span>Предустановки <span id="ed-preset-count"></span></span>
-              <span class="editor-hint">клик — поставить, правый клик — стереть, можно вести мышью</span>
+              <span class="editor-hint">клик — одно здание, правый клик — стереть</span>
             </div>
             <div id="ed-presets" class="editor-presets"></div>
           </div>
@@ -166,13 +167,14 @@ export class LevelEditor {
           <div id="ed-issues" class="editor-issues"></div>
           <div class="editor-actions">
             <button id="ed-copy">Скопировать JSON</button>
-            <button id="ed-download">Скачать .json</button>
+            <button id="ed-download">Скачать объект</button>
+            <button id="ed-act">Скачать акт</button>
             <button id="ed-test" class="editor-primary">Играть</button>
           </div>
         </div>
 
         <details class="editor-json" open>
-          <summary>JSON для вставки в код</summary>
+          <summary>JSON уровня</summary>
           <textarea id="ed-json" readonly spellcheck="false"></textarea>
         </details>
       </div>`;
@@ -207,6 +209,7 @@ export class LevelEditor {
     this.testBtn = q<HTMLButtonElement>('ed-test');
     this.copyBtn = q<HTMLButtonElement>('ed-copy');
     this.downloadBtn = q<HTMLButtonElement>('ed-download');
+    this.actBtn = q<HTMLButtonElement>('ed-act');
 
     this.loadSelect.innerHTML =
       '<option value="">Загрузить уровень…</option>' +
@@ -446,14 +449,6 @@ export class LevelEditor {
       const cell = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-r]');
       if (!cell) return;
       event.preventDefault();
-      this.painting = true;
-      this.paintCell(Number(cell.dataset.r), Number(cell.dataset.c));
-    });
-
-    this.grid.addEventListener('pointerover', (event) => {
-      if (!this.painting) return;
-      const cell = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-r]');
-      if (!cell) return;
       this.paintCell(Number(cell.dataset.r), Number(cell.dataset.c));
     });
 
@@ -461,10 +456,6 @@ export class LevelEditor {
       event.preventDefault();
       const cell = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-r]');
       if (cell) this.eraseCell(Number(cell.dataset.r), Number(cell.dataset.c));
-    });
-
-    window.addEventListener('pointerup', () => {
-      this.painting = false;
     });
 
     this.presetsBox.addEventListener('pointerdown', (event) => {
@@ -531,6 +522,7 @@ export class LevelEditor {
 
     this.copyBtn.addEventListener('click', () => void this.copy());
     this.downloadBtn.addEventListener('click', () => this.download());
+    this.actBtn.addEventListener('click', () => this.downloadAct());
     this.testBtn.addEventListener('click', () => {
       this.onTest(this.buildLevel());
     });
@@ -694,14 +686,35 @@ export class LevelEditor {
     return issues;
   }
 
-  private targetLabel(id: number): string {
+  private actIndexFor(id: number): number {
     const index = id - 1;
-    const actIndex = ACTS.findIndex((act) => index >= act.from && index <= act.to);
+    return ACTS.findIndex((act) => index >= act.from && index <= act.to);
+  }
+
+  /** Весь акт с заменённым уровнем — этот файл можно скачать и положить в src/game/levels. */
+  private buildAct(): { file: string; levels: readonly LevelDef[] } | null {
+    const actIndex = this.actIndexFor(this.draft.id);
+    if (actIndex < 0) return null;
+
+    const act = ACTS[actIndex]!;
+    const edited = this.buildLevel();
+    const levels = LEVELS.slice(act.from, act.to + 1);
+    const index = levels.findIndex((level) => level.id === edited.id);
+    const next =
+      index >= 0
+        ? levels.map((level, i) => (i === index ? edited : level))
+        : [...levels, edited].sort((a, b) => a.id - b.id);
+
+    return { file: `act${actIndex + 1}.json`, levels: next };
+  }
+
+  private targetLabel(id: number): string {
+    const actIndex = this.actIndexFor(id);
     if (actIndex < 0) {
-      return `id ${id} за пределами пяти актов — добавьте новый ACT и диапазон в ACTS`;
+      return `id ${id} за пределами пяти актов — добавьте новый акт и диапазон в ACTS`;
     }
     const act = ACTS[actIndex]!;
-    return `вставьте объект в ACT${actIndex + 1} · src/game/levels/act${actIndex + 1}.ts (${act.title})`;
+    return `ACT${actIndex + 1} · src/game/levels/act${actIndex + 1}.json — ${act.title}`;
   }
 
   private sync(): void {
@@ -724,11 +737,13 @@ export class LevelEditor {
               `<span class="${issue.error ? 'bad' : 'warn'}">${issue.error ? '✕' : '!'} ${issue.text}</span>`,
           )
           .join('')
-      : '<span class="ok">✓ JSON готов — вставьте объект в файл акта</span>';
+      : '<span class="ok">✓ Готово — можно копировать объект или скачать весь акт</span>';
 
     this.testBtn.disabled = hasErrors;
     this.copyBtn.disabled = hasErrors;
     this.downloadBtn.disabled = hasErrors;
+    this.actBtn.disabled = hasErrors || this.buildAct() === null;
+    this.actBtn.title = this.buildAct() ? 'Скачать весь акт с этим уровнем' : 'id вне актов кампании';
 
     this.persist(level);
   }
@@ -775,11 +790,26 @@ export class LevelEditor {
 
   private download(): void {
     const level = this.buildLevel();
-    const blob = new Blob([`${this.jsonArea.value}\n`], { type: 'application/json' });
+    this.saveJson(`level-${level.id}.json`, `${this.jsonArea.value}\n`);
+  }
+
+  private downloadAct(): void {
+    const act = this.buildAct();
+    if (!act) return;
+    const json = JSON.stringify(act.levels, null, 2).replace(
+      /\[\s+(-?\d+),\s+(-?\d+)\s+\]/g,
+      '[$1, $2]',
+    );
+    this.saveJson(act.file, `${json}\n`);
+    this.flash(this.actBtn, 'Сохранено ✓');
+  }
+
+  private saveJson(fileName: string, text: string): void {
+    const blob = new Blob([text], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `level-${level.id}.json`;
+    link.download = fileName;
     link.click();
     URL.revokeObjectURL(url);
   }

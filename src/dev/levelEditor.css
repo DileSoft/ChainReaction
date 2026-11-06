@@ -432,6 +432,8 @@
   margin-left: auto;
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .editor-actions button {
@@ -517,7 +519,7 @@
   }
 
   .editor-actions button {
-    flex: 1;
+    flex: 1 1 40%;
   }
 
   .editor-head {
