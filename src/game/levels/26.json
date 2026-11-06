@@ -1,0 +1,20 @@
+{
+  "id": 26,
+  "name": "Сталь и шестерни",
+  "subtitle": "Две линии",
+  "brief": "Большая цель требует двух независимых линий, которые делят одно сырьё. Считайте баланс до последнего звена.",
+  "goal": 2500,
+  "startMoney": 800,
+  "available": [
+    "mine",
+    "smelter",
+    "press",
+    "cutter",
+    "welder",
+    "assembler",
+    "warehouse",
+    "port"
+  ],
+  "presets": [],
+  "parTime": 360
+}

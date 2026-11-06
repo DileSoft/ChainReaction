@@ -1,0 +1,21 @@
+{
+  "id": 29,
+  "name": "Пятилетка",
+  "subtitle": "План на четыре тысячи",
+  "brief": "Три минуты на всё. Пластины — быстрый старт, модули — основной доход. Держите темп.",
+  "goal": 4000,
+  "startMoney": 1000,
+  "available": [
+    "mine",
+    "smelter",
+    "press",
+    "cutter",
+    "welder",
+    "assembler",
+    "warehouse",
+    "port"
+  ],
+  "presets": [],
+  "timeLimit": 180,
+  "parTime": 150
+}

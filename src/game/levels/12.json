@@ -1,0 +1,20 @@
+{
+  "id": 12,
+  "name": "Экзамен II",
+  "subtitle": "Всё вместе",
+  "brief": "Полный набор зданий и цель в 2500 ₽. Помните: каждый лишний производитель должен кому-то отдавать продукцию.",
+  "goal": 2500,
+  "startMoney": 500,
+  "available": [
+    "mine",
+    "smelter",
+    "press",
+    "cutter",
+    "welder",
+    "assembler",
+    "warehouse",
+    "port"
+  ],
+  "presets": [],
+  "parTime": 420
+}

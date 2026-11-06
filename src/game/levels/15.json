@@ -1,0 +1,28 @@
+{
+  "id": 15,
+  "name": "Замкнутый цикл",
+  "subtitle": "Кольцо",
+  "brief": "Рудник отдаёт две руды за такт. Одну пускайте на пластины, вторую — через Рециклер обратно в шахту. Так залежи не кончатся никогда.",
+  "goal": 600,
+  "startMoney": 260,
+  "available": [
+    "smelter",
+    "press",
+    "cutter",
+    "crusher",
+    "welder",
+    "assembler",
+    "warehouse",
+    "port"
+  ],
+  "presets": [
+    {
+      "type": "mine",
+      "r": 4,
+      "c": 4,
+      "deposit": 200,
+      "rate": 2
+    }
+  ],
+  "parTime": 210
+}

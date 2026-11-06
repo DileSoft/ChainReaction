@@ -1,0 +1,28 @@
+{
+  "id": 18,
+  "name": "Экзамен III",
+  "subtitle": "Кольцо и рост",
+  "brief": "Залежей немного, цель большая. Замкните цикл первым делом, а уже потом стройте прибыль.",
+  "goal": 1200,
+  "startMoney": 350,
+  "available": [
+    "smelter",
+    "press",
+    "cutter",
+    "crusher",
+    "welder",
+    "assembler",
+    "warehouse",
+    "port"
+  ],
+  "presets": [
+    {
+      "type": "mine",
+      "r": 4,
+      "c": 4,
+      "deposit": 150,
+      "rate": 2
+    }
+  ],
+  "parTime": 300
+}

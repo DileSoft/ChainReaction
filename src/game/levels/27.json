@@ -1,0 +1,17 @@
+{
+  "id": 27,
+  "name": "Без сноса",
+  "subtitle": "Ошибка стоит денег",
+  "brief": "Сносить нельзя: что поставили — то и работает. Просчитайте клетки до первого клика.",
+  "goal": 1200,
+  "startMoney": 400,
+  "available": [
+    "mine",
+    "smelter",
+    "press",
+    "warehouse"
+  ],
+  "presets": [],
+  "noDemolish": true,
+  "parTime": 300
+}

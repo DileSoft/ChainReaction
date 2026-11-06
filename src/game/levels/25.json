@@ -1,0 +1,26 @@
+{
+  "id": 25,
+  "name": "Разделение",
+  "subtitle": "Один источник, две ветки",
+  "brief": "Рудник на поле один, но качает по две руды за такт. Разведите потоки: пластины на склад, шестерни и каркасы — в модули.",
+  "goal": 1500,
+  "startMoney": 700,
+  "available": [
+    "smelter",
+    "press",
+    "cutter",
+    "welder",
+    "assembler",
+    "warehouse",
+    "port"
+  ],
+  "presets": [
+    {
+      "type": "mine",
+      "r": 4,
+      "c": 4,
+      "rate": 2
+    }
+  ],
+  "parTime": 300
+}

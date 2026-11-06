@@ -1,0 +1,17 @@
+{
+  "id": 21,
+  "name": "Смена",
+  "subtitle": "Таймер",
+  "brief": "Конец смены — через девяносто секунд. Успейте не только построить, но и заработать.",
+  "goal": 500,
+  "startMoney": 300,
+  "available": [
+    "mine",
+    "smelter",
+    "press",
+    "warehouse"
+  ],
+  "presets": [],
+  "timeLimit": 90,
+  "parTime": 75
+}

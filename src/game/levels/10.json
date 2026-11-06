@@ -1,0 +1,20 @@
+{
+  "id": 10,
+  "name": "Конвейер",
+  "subtitle": "Разгон",
+  "brief": "Начинайте с пластин на склад, а прибыль вкладывайте в сборку. Главное — не оставлять производителей без потребителей.",
+  "goal": 1800,
+  "startMoney": 900,
+  "available": [
+    "mine",
+    "smelter",
+    "press",
+    "cutter",
+    "welder",
+    "assembler",
+    "warehouse",
+    "port"
+  ],
+  "presets": [],
+  "parTime": 300
+}

@@ -1,0 +1,26 @@
+{
+  "id": 24,
+  "name": "Экзамен IV",
+  "subtitle": "Стены и срок",
+  "brief": "Стены, ограниченное время и цель в 2000 ₽. Сначала быстрый доход, потом глубина переработки.",
+  "goal": 2000,
+  "startMoney": 500,
+  "available": [
+    "mine",
+    "smelter",
+    "press",
+    "cutter",
+    "welder",
+    "assembler",
+    "warehouse",
+    "port"
+  ],
+  "presets": [],
+  "blocked": [
+    [4, 3],
+    [4, 4],
+    [4, 5]
+  ],
+  "timeLimit": 180,
+  "parTime": 150
+}
