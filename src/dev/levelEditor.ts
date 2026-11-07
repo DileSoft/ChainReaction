@@ -8,6 +8,7 @@ import {
 } from '../game/data';
 import { buildingIcon } from '../game/icons';
 import { ACTS, LEVELS } from '../game/levels';
+import { formatLevelJson, levelFileName } from '../game/levels/validate';
 import './levelEditor.css';
 
 /**
@@ -86,6 +87,7 @@ export class LevelEditor {
   private readonly testBtn: HTMLButtonElement;
   private readonly copyBtn: HTMLButtonElement;
   private readonly downloadBtn: HTMLButtonElement;
+  private readonly saveBtn: HTMLButtonElement;
 
   private readonly cells: HTMLButtonElement[] = [];
   private draft: EditorDraft;
@@ -165,6 +167,7 @@ export class LevelEditor {
         <div class="editor-foot">
           <div id="ed-issues" class="editor-issues"></div>
           <div class="editor-actions">
+            <button id="ed-save" class="editor-save">Сохранить в проект</button>
             <button id="ed-copy">Скопировать JSON</button>
             <button id="ed-download">Скачать уровень</button>
             <button id="ed-test" class="editor-primary">Играть</button>
@@ -207,6 +210,7 @@ export class LevelEditor {
     this.testBtn = q<HTMLButtonElement>('ed-test');
     this.copyBtn = q<HTMLButtonElement>('ed-copy');
     this.downloadBtn = q<HTMLButtonElement>('ed-download');
+    this.saveBtn = q<HTMLButtonElement>('ed-save');
 
     this.loadSelect.innerHTML =
       '<option value="">Загрузить уровень…</option>' +
@@ -519,6 +523,7 @@ export class LevelEditor {
 
     this.copyBtn.addEventListener('click', () => void this.copy());
     this.downloadBtn.addEventListener('click', () => this.download());
+    this.saveBtn.addEventListener('click', () => void this.saveToProject());
     this.testBtn.addEventListener('click', () => {
       this.onTest(this.buildLevel());
     });
@@ -652,7 +657,7 @@ export class LevelEditor {
 
     if (level.id < 1) add('ID должен быть положительным', true);
     else if (LEVELS.some((item) => item.id === level.id)) {
-      add(`id ${level.id} уже занят — скачанный файл заменит существующий ${this.levelFileName(level.id)}`, false);
+      add(`id ${level.id} уже занят — сохранение заменит существующий ${levelFileName(level.id)}`, false);
     }
 
     if (!level.name) add('Укажите название уровня', true);
@@ -687,13 +692,8 @@ export class LevelEditor {
     return ACTS.findIndex((act) => index >= act.from && index <= act.to);
   }
 
-  /** Имя файла уровня: 01.json, 02.json, … — как в src/game/levels. */
-  private levelFileName(id: number): string {
-    return `${String(id).padStart(2, '0')}.json`;
-  }
-
   private targetLabel(id: number): string {
-    const file = `src/game/levels/${this.levelFileName(id)}`;
+    const file = `src/game/levels/${levelFileName(id)}`;
     const actIndex = this.actIndexFor(id);
     if (actIndex < 0) {
       return `${file} — id вне пяти актов, добавьте диапазон в ACTS`;
@@ -706,10 +706,7 @@ export class LevelEditor {
     this.heading.textContent = level.name || 'Новый уровень';
     this.target.textContent = this.targetLabel(level.id);
 
-    const json = JSON.stringify(level, null, 2).replace(
-      /\[\s+(-?\d+),\s+(-?\d+)\s+\]/g,
-      '[$1, $2]',
-    );
+    const json = formatLevelJson(level).trimEnd();
     if (this.jsonArea.value !== json) this.jsonArea.value = json;
 
     const issues = this.issuesFor(level);
@@ -721,11 +718,12 @@ export class LevelEditor {
               `<span class="${issue.error ? 'bad' : 'warn'}">${issue.error ? '✕' : '!'} ${issue.text}</span>`,
           )
           .join('')
-      : '<span class="ok">✓ Готово — можно копировать JSON или скачать файл уровня</span>';
+      : '<span class="ok">✓ Готово — можно сохранить файл в проект</span>';
 
     this.testBtn.disabled = hasErrors;
     this.copyBtn.disabled = hasErrors;
     this.downloadBtn.disabled = hasErrors;
+    this.saveBtn.disabled = hasErrors;
 
     this.persist(level);
   }
@@ -770,9 +768,37 @@ export class LevelEditor {
     this.flash(this.copyBtn, 'Скопировано ✓');
   }
 
+  /** Сохраняет уровень на dev-сервере прямо в src/game/levels/NN.json. */
+  private async saveToProject(): Promise<void> {
+    const level = this.buildLevel();
+    const file = levelFileName(level.id);
+
+    // после записи файла Vite перезагрузит страницу — вернём редактор обратно
+    sessionStorage.setItem('chain-reaction.editor.reopen', '1');
+
+    try {
+      const response = await fetch('/__level/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level }),
+      });
+      const result = (await response.json()) as { ok?: boolean; file?: string; error?: string };
+
+      if (!response.ok || !result.ok) throw new Error(result.error ?? `HTTP ${response.status}`);
+
+      const saved = result.file ?? file;
+      this.flash(this.saveBtn, `Сохранено: ${saved}`);
+      this.issuesBox.innerHTML = `<span class="ok">✓ Записан src/game/levels/${saved}</span>`;
+    } catch (error) {
+      sessionStorage.removeItem('chain-reaction.editor.reopen');
+      this.flash(this.saveBtn, 'Не сохранено');
+      this.issuesBox.innerHTML = `<span class="bad">✕ ${error instanceof Error ? error.message : String(error)}</span>`;
+    }
+  }
+
   private download(): void {
     const level = this.buildLevel();
-    this.saveJson(this.levelFileName(level.id), `${this.jsonArea.value}\n`);
+    this.saveJson(levelFileName(level.id), formatLevelJson(level));
     this.flash(this.downloadBtn, 'Скачано ✓');
   }
 

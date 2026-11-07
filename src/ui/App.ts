@@ -92,8 +92,11 @@ export class App {
     this.bindEvents();
     this.showIntro();
 
-    if (import.meta.env.DEV && new URLSearchParams(window.location.search).has('editor')) {
-      void this.openEditor();
+    if (import.meta.env.DEV) {
+      const reopen = sessionStorage.getItem('chain-reaction.editor.reopen') === '1';
+      const requested = new URLSearchParams(window.location.search).has('editor');
+      if (reopen) sessionStorage.removeItem('chain-reaction.editor.reopen');
+      if (requested || reopen) void this.openEditor();
     }
   }
 

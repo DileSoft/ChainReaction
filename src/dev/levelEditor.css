@@ -446,6 +446,17 @@
   cursor: not-allowed;
 }
 
+.editor-actions .editor-save {
+  color: #8ee6a4;
+  background: #14261b;
+  border-color: #2f6f45;
+}
+
+.editor-actions .editor-save:hover {
+  background: #1a3324;
+  border-color: #3d8b58;
+}
+
 .editor-actions .editor-primary {
   font-weight: 700;
   color: #20120a;
